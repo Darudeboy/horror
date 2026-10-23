@@ -31,8 +31,7 @@
 - Примитивы Godot (`BoxMesh`, `CapsuleMesh`, свет, `Label3D`)
 - Материалы без текстур: `assets/materials/door_metal.tres`, `accent_sign.tres`, `printer_body.tres`
 - Иконка `icon.svg` — оригинальная заглушка проекта
-- Силуэт противника — собственные примитивы (`scenes/enemies/enemy.tscn`); сторонний humanoid **не** используется
-- Корпус принтера / турникет / двери — собственные примитивы с материалами проекта
+- Двери / люминесцентные корпуса / fallback-коллизии — собственные примитивы
 - Аудиоклипы пока отсутствуют; игровой шум ИИ не требует файлов
 
 ---
@@ -98,3 +97,33 @@
   - `assets/models/kenney/computerKeyboard.glb`
 - Использование: столы, стул, монитор/клавиатура на стартовом рабочем месте
 - Примечание: атрибуция Kenney **не обязательна** по CC0; набор указан здесь для прозрачности
+
+### CreativeTrio Printer
+- Источник: Poly Pizza
+- Автор: CreativeTrio
+- Лицензия: Public Domain (CC0)
+- URL: https://poly.pizza/m/77K2TCL5Lz
+- Путь: `assets/models/props/printer.glb`
+- Использование: визуал принтера в бухгалтерии
+
+### Quaternius Ghost (compliance officer)
+- Источник: Poly Pizza / Quaternius
+- Автор: Quaternius
+- Лицензия: Public Domain (CC0)
+- URL: https://poly.pizza/m/Iip30bDHmu
+- Путь: `assets/models/enemy/compliance_officer.glb`
+- Использование: силуэт сотрудника службы соответствия (масштабирован)
+
+### Barrier Single / Barrier Large (турникет)
+- Источник: Poly Pizza
+- Лицензия: Public Domain
+- URL: https://poly.pizza/m/wCUxgt2jSP , https://poly.pizza/m/gLbBiYwt7l
+- Путь: `assets/models/props/barrier_single.glb`, `barrier_large.glb`
+- Использование: визуал турникета
+
+### Pickup Key Card
+- Источник: Poly Pizza
+- Лицензия: Public Domain
+- URL: https://poly.pizza/m/EDvCEBvs8k
+- Путь: `assets/models/props/keycard.glb`
+- Использование: визуал пропуска

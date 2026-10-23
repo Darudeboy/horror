@@ -20,7 +20,8 @@ func _on_item(changed_id: String, _owned: bool) -> void:
 
 
 func _refresh_visibility() -> void:
-	if item_id != "" and GameState.has_item(item_id):
+	# Key items only once; consumables handled by ConsumablePickup
+	if item_id != "" and GameState.items.get(item_id, false):
 		visible = false
 		enabled = false
 	else:
@@ -29,7 +30,7 @@ func _refresh_visibility() -> void:
 
 
 func can_interact(_player: Node) -> bool:
-	return enabled and not GameState.has_item(item_id)
+	return enabled and not GameState.items.get(item_id, false)
 
 
 func get_deny_reason(_player: Node) -> String:
@@ -37,7 +38,7 @@ func get_deny_reason(_player: Node) -> String:
 
 
 func _on_interact(_player: Node) -> void:
-	if GameState.has_item(item_id):
+	if GameState.items.get(item_id, false):
 		return
 	GameState.give_item(item_id)
 	if grant_access != "":

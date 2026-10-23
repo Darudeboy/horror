@@ -7,6 +7,7 @@ signal pause_changed(paused: bool)
 @onready var prompt_label: Label = $HUD/Prompt
 @onready var task_label: Label = $HUD/TaskLabel
 @onready var items_label: Label = $HUD/ItemsLabel
+@onready var meters_label: Label = $HUD/MetersLabel
 @onready var notify_label: Label = $HUD/Notify
 @onready var pause_panel: Control = $PauseMenu
 @onready var journal_panel: Control = $Journal
@@ -35,10 +36,17 @@ func _ready() -> void:
 	fade.modulate.a = 0.0
 	GameState.notification_requested.connect(show_notification)
 	GameState.item_changed.connect(func(_a, _b): _refresh_items())
+	if meters_label == null:
+		meters_label = Label.new()
+		meters_label.name = "MetersLabel"
+		meters_label.position = Vector2(16, 76)
+		$HUD.add_child(meters_label)
+	GameState.meters_changed.connect(_on_meters)
 	var tm := get_tree().get_first_node_in_group("task_manager")
 	if tm and tm.has_signal("current_task_changed"):
 		tm.current_task_changed.connect(_on_task)
 	_refresh_items()
+	_on_meters(GameState.stamina, GameState.anxiety)
 	_find_player()
 	# Debug only outside release export
 	if OS.has_feature("template") and not OS.is_debug_build():
@@ -187,6 +195,12 @@ func _refresh_items() -> void:
 		items_label.text = "Предметы: —"
 	else:
 		items_label.text = "Предметы: " + ", ".join(labels)
+
+
+func _on_meters(stamina: float, anxiety: float) -> void:
+	if meters_label == null:
+		return
+	meters_label.text = "Выносливость: %d%%   Тревожность: %d%%" % [int(stamina), int(anxiety)]
 
 
 func show_notification(text: String) -> void:

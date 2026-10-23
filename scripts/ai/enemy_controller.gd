@@ -33,10 +33,36 @@ func _ready() -> void:
 	visible = false
 	set_physics_process(false)
 	AudioManager.noise_emitted.connect(_on_noise)
+	GameState.smoke_alarm.connect(func(pos: Vector3): _on_noise(pos, 22.0, "smoke_alarm"))
 	_collect_patrol()
+	_attach_visual_model()
 	agent.path_desired_distance = 0.5
 	agent.target_desired_distance = 0.5
 	agent.avoidance_enabled = false
+
+
+func _attach_visual_model() -> void:
+	## Quaternius Ghost (CC0) as compliance silhouette; fallback keeps capsule.
+	var path := "res://assets/models/enemy/compliance_officer.glb"
+	if not ResourceLoader.exists(path):
+		return
+	var packed: Resource = load(path)
+	if packed == null or not (packed is PackedScene):
+		return
+	var visual: Node = (packed as PackedScene).instantiate()
+	if visual is Node3D:
+		(visual as Node3D).scale = Vector3(1.9, 1.9, 1.9)
+		(visual as Node3D).position = Vector3(0, 0, 0)
+	add_child(visual)
+	var body := get_node_or_null("Body")
+	if body:
+		body.visible = false
+	var badge := get_node_or_null("Badge")
+	if badge:
+		badge.visible = true
+		if badge is Node3D:
+			(badge as Node3D).position = Vector3(0.35, 1.5, 0.45)
+			(badge as Node3D).scale = Vector3(1.4, 1.4, 1.4)
 
 
 func _collect_patrol() -> void:

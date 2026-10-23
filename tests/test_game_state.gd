@@ -36,6 +36,13 @@ func _check_items(gs: Node) -> bool:
 	if not gs.has_access(gs.ACCESS_ACCOUNTING):
 		print("FAIL access")
 		return false
+	gs.give_item(gs.ITEM_ENERGY_DRINK, 2)
+	if gs.get_consumable_count(gs.ITEM_ENERGY_DRINK) != 2:
+		print("FAIL energy count")
+		return false
+	if not gs.use_energy_drink():
+		print("FAIL use energy")
+		return false
 	print("PASS items")
 	return true
 

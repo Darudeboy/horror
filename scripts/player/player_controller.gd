@@ -1,14 +1,16 @@
 extends CharacterBody3D
 class_name PlayerController
-## Movement and camera only — no quest logic.
+## Movement, camera, stamina sprint, consumable hotkeys.
 
 signal noise_step(position: Vector3, radius: float)
 
 const WALK_SPEED := 3.0
 const RUN_SPEED := 5.0
+const RUN_BOOST_SPEED := 6.2
 const GRAVITY := 9.8
 const RUN_NOISE_RADIUS := 8.0
 const RUN_NOISE_INTERVAL := 0.35
+const SPRINT_STAMINA_COST := 22.0
 
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
@@ -27,10 +29,22 @@ func _ready() -> void:
 	_base_camera_y = camera.position.y
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	SettingsManager.settings_changed.connect(_on_settings_changed)
+	GameState.smoke_alarm.connect(_on_smoke_alarm)
 
 
 func _on_settings_changed() -> void:
 	pass
+
+
+func _on_smoke_alarm(pos: Vector3) -> void:
+	GameState.notification_requested.emit("СИГНАЛИЗАЦИЯ: задымление. Служба соответствия уведомлена.")
+	var enemy := get_tree().get_first_node_in_group("enemy")
+	if enemy and enemy.has_method("try_activate_safely"):
+		if not GameState.get_flag(GameState.FLAG_ENEMY_ACTIVATED):
+			if enemy.try_activate_safely():
+				GameState.set_flag(GameState.FLAG_ENEMY_ACTIVATED, true)
+		elif enemy.has_method("_on_noise"):
+			enemy._on_noise(pos, 22.0, "smoke_alarm")
 
 
 func set_controls_enabled(enabled: bool) -> void:
@@ -53,6 +67,12 @@ func _unhandled_input(event: InputEvent) -> void:
 		rotate_y(-event.relative.x * sens * 0.01)
 		_pitch = clampf(_pitch - event.relative.y * sens * 0.01, deg_to_rad(-85.0), deg_to_rad(85.0))
 		head.rotation.x = _pitch
+	if event.is_action_pressed("use_energy"):
+		GameState.use_energy_drink()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("use_cigarettes"):
+		GameState.use_cigarettes(global_position)
+		get_viewport().set_input_as_handled()
 
 
 func _physics_process(delta: float) -> void:
@@ -70,8 +90,19 @@ func _physics_process(delta: float) -> void:
 
 	var input_dir := Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var direction := (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
-	var sprinting := Input.is_action_pressed("sprint") and direction != Vector3.ZERO
-	var speed := RUN_SPEED if sprinting else WALK_SPEED
+	var want_sprint := Input.is_action_pressed("sprint") and direction != Vector3.ZERO
+	var can_sprint := want_sprint and (GameState.stamina > 1.0 or GameState.has_stamina_boost())
+	var sprinting := can_sprint
+	var speed := WALK_SPEED
+	if sprinting:
+		speed = RUN_BOOST_SPEED if GameState.has_stamina_boost() else RUN_SPEED
+		GameState.spend_stamina(SPRINT_STAMINA_COST * delta)
+	else:
+		GameState.regen_stamina(delta, direction == Vector3.ZERO)
+
+	# High anxiety slightly slows walk
+	if GameState.anxiety > 70.0:
+		speed *= 0.92
 
 	if direction != Vector3.ZERO:
 		velocity.x = direction.x * speed
@@ -93,7 +124,6 @@ func _physics_process(delta: float) -> void:
 	if Input.is_action_just_pressed("interact"):
 		interaction.try_interact()
 
-	# Fall recovery
 	if global_position.y < -10.0:
 		_respawn_safe()
 

@@ -22,13 +22,18 @@ var _player_inside: bool = false
 
 func setup(metal: StandardMaterial3D, door_mat: StandardMaterial3D) -> void:
 	add_to_group("elevator_bank")
-	mat_metal = metal.duplicate() if metal else _solid(Color(0.35, 0.38, 0.42))
-	mat_door = door_mat.duplicate() if door_mat else _solid(Color(0.55, 0.58, 0.62))
-	mat_glow = _solid(Color(0.9, 0.95, 0.7))
+	mat_metal = metal.duplicate() if metal else _solid(Color(0.18, 0.2, 0.23))
+	mat_metal.metallic = 0.85
+	mat_metal.roughness = 0.32
+	mat_door = door_mat.duplicate() if door_mat else _solid(Color(0.12, 0.13, 0.15))
+	mat_door.metallic = 0.9
+	mat_door.roughness = 0.28
+	# Red call LED like the reference
+	mat_glow = _solid(Color(0.85, 0.12, 0.1))
 	mat_glow.emission_enabled = true
-	mat_glow.emission = Color(0.85, 0.95, 0.5)
-	mat_glow.emission_energy_multiplier = 1.8
-	mat_arrow_off = _solid(Color(0.2, 0.25, 0.2))
+	mat_glow.emission = Color(1.0, 0.15, 0.08)
+	mat_glow.emission_energy_multiplier = 4.5
+	mat_arrow_off = _solid(Color(0.15, 0.18, 0.15))
 	mat_arrow_on = _solid(Color(0.3, 0.95, 0.35))
 	mat_arrow_on.emission_enabled = true
 	mat_arrow_on.emission = Color(0.2, 1.0, 0.3)
@@ -65,17 +70,22 @@ func register_landing(floor_id: int, parent: Node3D, pos: Vector3) -> void:
 	_box(root, Vector3(-cw * 0.5, ch * 0.5, cz), Vector3(0.1, ch, cd), mat_metal) # left
 	_box(root, Vector3(cw * 0.5, ch * 0.5, cz), Vector3(0.1, ch, cd), mat_metal) # right
 	_box(root, Vector3(0, ch * 0.5, cz - cd * 0.5), Vector3(cw, ch, 0.1), mat_metal) # back
-	# Opening frame
-	_box(root, Vector3(-(DOOR_W + 0.15), 1.15, 0.02), Vector3(0.2, 2.4, 0.25), mat_metal)
-	_box(root, Vector3(DOOR_W + 0.15, 1.15, 0.02), Vector3(0.2, 2.4, 0.25), mat_metal)
-	_box(root, Vector3(0, 2.35, 0.02), Vector3(DOOR_W * 2.0 + 0.5, 0.2, 0.25), mat_metal)
-	_box(root, Vector3(0, 0.08, 0.02), Vector3(DOOR_W * 2.0 + 0.5, 0.16, 0.25), mat_metal)
+	# Recessed dark metal frame (screenshot look)
+	_box(root, Vector3(-(DOOR_W + 0.22), 1.2, 0.0), Vector3(0.28, 2.55, 0.35), mat_metal)
+	_box(root, Vector3(DOOR_W + 0.22, 1.2, 0.0), Vector3(0.28, 2.55, 0.35), mat_metal)
+	_box(root, Vector3(0, 2.45, 0.0), Vector3(DOOR_W * 2.15 + 0.55, 0.28, 0.35), mat_metal)
+	_box(root, Vector3(0, 0.06, 0.0), Vector3(DOOR_W * 2.15 + 0.55, 0.14, 0.35), mat_metal)
+	# Inner reveal
+	_box(root, Vector3(0, 1.2, -0.12), Vector3(DOOR_W * 2.05, 2.45, 0.08), mat_metal)
 
-	# Sliding doors (closed flush with frame)
-	var door_l := _mesh_box(root, Vector3(-DOOR_W * 0.5, DOOR_H * 0.5 + 0.05, 0.08), Vector3(DOOR_W, DOOR_H, DOOR_T), mat_door)
+	# Sliding brushed-metal doors
+	var door_l := _mesh_box(root, Vector3(-DOOR_W * 0.5, DOOR_H * 0.5 + 0.05, 0.1), Vector3(DOOR_W, DOOR_H, DOOR_T), mat_door)
 	door_l.name = "DoorL"
-	var door_r := _mesh_box(root, Vector3(DOOR_W * 0.5, DOOR_H * 0.5 + 0.05, 0.08), Vector3(DOOR_W, DOOR_H, DOOR_T), mat_door)
+	var door_r := _mesh_box(root, Vector3(DOOR_W * 0.5, DOOR_H * 0.5 + 0.05, 0.1), Vector3(DOOR_W, DOOR_H, DOOR_T), mat_door)
 	door_r.name = "DoorR"
+	# Door seam / handle strips
+	_mesh_box(root, Vector3(-0.02, 1.15, 0.14), Vector3(0.03, 0.35, 0.02), mat_metal)
+	_mesh_box(root, Vector3(0.02, 1.15, 0.14), Vector3(0.03, 0.35, 0.02), mat_metal)
 
 	# Arrow indicators above door
 	var arrow_up := _mesh_box(root, Vector3(-0.25, 2.55, 0.12), Vector3(0.28, 0.22, 0.05), mat_arrow_off)
@@ -114,8 +124,8 @@ func register_landing(floor_id: int, parent: Node3D, pos: Vector3) -> void:
 	floor_lbl.modulate = Color(0.9, 0.95, 0.5)
 	root.add_child(floor_lbl)
 
-	# Call button panel beside doors
-	var panel := _make_button(root, Vector3(1.25, 1.25, 0.15), floor_id)
+	# Call button panel to the left of doors (reference shot)
+	var panel := _make_button(root, Vector3(-1.35, 1.2, 0.18), floor_id)
 	root.add_child(panel)
 
 	# Landing marker (where player exits)

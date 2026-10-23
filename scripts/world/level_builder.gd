@@ -28,7 +28,9 @@ func build() -> void:
 	bank.name = "ElevatorBank"
 	bank.set_script(load("res://scripts/interactions/elevator_bank.gd"))
 	add_child(bank)
-	bank.setup(mat_door, mat_door)
+	var elev_metal := _load_mat("res://assets/materials/elevator_metal.tres", Color(0.18, 0.2, 0.23))
+	var elev_door := _load_mat("res://assets/materials/elevator_door.tres", Color(0.12, 0.13, 0.15))
+	bank.setup(elev_metal, elev_door)
 	_build_floor(0.0, 1, bank)
 	_build_floor(FLOOR2_Y, 2, bank)
 	_add_navigation()
@@ -36,22 +38,21 @@ func build() -> void:
 
 
 func _make_materials() -> void:
-	mat_wall = _load_mat("res://assets/materials/wall_plaster.tres", Color(0.86, 0.84, 0.78))
-	# Force light beige-gray read even if texture is dark
-	mat_wall.albedo_color = Color(1.15, 1.12, 1.05, 1)
-	mat_floor = _load_mat("res://assets/materials/floor_carpet.tres", Color(0.14, 0.18, 0.28))
-	mat_floor_tech = _load_mat("res://assets/materials/tech_floor_tiles.tres", Color(0.4, 0.41, 0.43))
-	mat_ceiling = _load_mat("res://assets/materials/ceiling_plaster.tres", Color(0.92, 0.9, 0.86))
+	# Look match: beige corridor, polished tiles, warm ceiling LEDs
+	mat_wall = _load_mat("res://assets/materials/office_wall_beige.tres", Color(0.88, 0.85, 0.78))
+	mat_floor = _load_mat("res://assets/materials/office_floor_tiles.tres", Color(0.82, 0.78, 0.7))
+	mat_floor_tech = _load_mat("res://assets/materials/office_floor_tiles.tres", Color(0.78, 0.74, 0.68))
+	mat_ceiling = _load_mat("res://assets/materials/office_ceiling_grid.tres", Color(0.9, 0.88, 0.84))
 	mat_accent = _load_mat("res://assets/materials/accent_sign.tres", Color(0.45, 0.62, 0.48))
-	mat_door = _load_mat("res://assets/materials/door_metal.tres", Color(0.4, 0.44, 0.5))
-	mat_fixture = _mat(Color(0.98, 1.0, 0.94))
+	mat_door = _load_mat("res://assets/materials/elevator_metal.tres", Color(0.22, 0.24, 0.28))
+	mat_fixture = _mat(Color(1.0, 0.98, 0.9))
 	mat_fixture.emission_enabled = true
-	mat_fixture.emission = Color(0.95, 1.0, 0.88)
-	mat_fixture.emission_energy_multiplier = 0.7
-	mat_glass = _mat(Color(0.55, 0.7, 0.85, 0.25))
+	mat_fixture.emission = Color(1.0, 0.92, 0.75)
+	mat_fixture.emission_energy_multiplier = 2.8
+	mat_glass = _mat(Color(0.65, 0.78, 0.9, 0.18))
 	mat_glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	mat_glass.roughness = 0.05
-	mat_glass.metallic = 0.2
+	mat_glass.roughness = 0.04
+	mat_glass.metallic = 0.15
 	mat_city = StandardMaterial3D.new()
 	mat_city.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	if ResourceLoader.exists("res://assets/textures/city/night_city_view.jpg"):
@@ -59,8 +60,8 @@ func _make_materials() -> void:
 	else:
 		mat_city.albedo_color = Color(0.05, 0.08, 0.18)
 	mat_city.emission_enabled = true
-	mat_city.emission = Color(0.15, 0.2, 0.35)
-	mat_city.emission_energy_multiplier = 0.45
+	mat_city.emission = Color(0.2, 0.25, 0.4)
+	mat_city.emission_energy_multiplier = 0.65
 
 
 func _load_mat(path: String, fallback: Color) -> StandardMaterial3D:
@@ -79,23 +80,36 @@ func _mat(c: Color) -> StandardMaterial3D:
 
 
 func _build_city_backdrop() -> void:
-	# Large unlit planes outside the south glass wall
 	var city := MeshInstance3D.new()
-	city.name = "NightCity"
+	city.name = "NightCitySouth"
 	var plane := QuadMesh.new()
-	plane.size = Vector2(90, 28)
+	plane.size = Vector2(100, 32)
 	city.mesh = plane
 	city.material_override = mat_city
-	city.position = Vector3(CX, 10.0, -28.0)
-	# Quad faces +Z by default; rotate to face into the building (+Z toward office)
-	city.rotation_degrees = Vector3(0, 0, 0)
+	city.position = Vector3(CX, 9.0, -26.5)
 	add_child(city)
+	# West skyline so elevator lobby can look out like the reference
+	var city_w := MeshInstance3D.new()
+	city_w.name = "NightCityWest"
+	var plane_w := QuadMesh.new()
+	plane_w.size = Vector2(80, 30)
+	city_w.mesh = plane_w
+	city_w.material_override = mat_city
+	city_w.position = Vector3(-28.0, 9.0, 8.0)
+	city_w.rotation_degrees = Vector3(0, 90, 0)
+	add_child(city_w)
 	var glow := OmniLight3D.new()
-	glow.position = Vector3(CX, 6.0, -24.0)
-	glow.omni_range = 18.0
-	glow.light_color = Color(0.35, 0.45, 0.75)
-	glow.light_energy = 0.35
+	glow.position = Vector3(CX, 5.0, -22.0)
+	glow.omni_range = 22.0
+	glow.light_color = Color(0.4, 0.5, 0.8)
+	glow.light_energy = 0.55
 	add_child(glow)
+	var glow_w := OmniLight3D.new()
+	glow_w.position = Vector3(-24.0, 5.0, 10.0)
+	glow_w.omni_range = 18.0
+	glow_w.light_color = Color(0.35, 0.45, 0.75)
+	glow_w.light_energy = 0.4
+	add_child(glow_w)
 
 
 func _build_floor(y0: float, floor_id: int, bank: Node = null) -> void:
@@ -134,14 +148,15 @@ func _shell(parent: Node3D, floor_id: int) -> void:
 
 
 func _windows(parent: Node3D) -> void:
-	# Glass panes looking at night city
-	for i in 5:
-		var x := CX - 10.0 + float(i) * 5.0
-		_box(parent, Vector3(x, 1.7, CZ - SZ * 0.5), Vector3(4.4, 2.0, 0.08), mat_glass)
-	# Thin mullions
+	# Tall office windows onto night city (left wall of corridor feel)
 	for i in 6:
-		var x2 := CX - 12.0 + float(i) * 5.0
-		_box(parent, Vector3(x2, 1.7, CZ - SZ * 0.5), Vector3(0.12, 2.2, 0.2), mat_door)
+		var x := CX - 12.5 + float(i) * 5.0
+		_box(parent, Vector3(x, 1.75, CZ - SZ * 0.5), Vector3(4.6, 2.3, 0.06), mat_glass)
+	for i in 7:
+		var x2 := CX - 15.0 + float(i) * 5.0
+		_box(parent, Vector3(x2, 1.75, CZ - SZ * 0.5), Vector3(0.14, 2.5, 0.22), mat_door)
+	# Window sill ledge
+	_box(parent, Vector3(CX, 0.55, CZ - SZ * 0.5 + 0.15), Vector3(30, 0.12, 0.35), mat_wall)
 
 
 func _partitions(parent: Node3D, floor_id: int) -> void:
@@ -294,25 +309,26 @@ func _lights(parent: Node3D, floor_id: int) -> void:
 		var env := WorldEnvironment.new()
 		var e := Environment.new()
 		e.background_mode = Environment.BG_COLOR
-		e.background_color = Color(0.05, 0.06, 0.08)
+		e.background_color = Color(0.04, 0.045, 0.055)
 		e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-		e.ambient_light_color = Color(0.45, 0.44, 0.4)
-		e.ambient_light_energy = 0.28
+		e.ambient_light_color = Color(0.55, 0.52, 0.46)
+		e.ambient_light_energy = 0.32
+		e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 		env.environment = e
 		parent.add_child(env)
+	# Sparse recessed square LED panels (warm yellow, like the reference shot)
 	var positions: Array[Vector3] = [
-		Vector3(-8, FLOOR_H - 0.35, -4), Vector3(2, FLOOR_H - 0.35, -4),
-		Vector3(14, FLOOR_H - 0.35, -2), Vector3(24, FLOOR_H - 0.35, 2),
-		Vector3(-18, FLOOR_H - 0.35, 0), Vector3(-10, FLOOR_H - 0.35, 10),
-		Vector3(2, FLOOR_H - 0.35, 14), Vector3(24, FLOOR_H - 0.35, 10),
-		Vector3(32, FLOOR_H - 0.35, -4), Vector3(14, FLOOR_H - 0.35, -11),
-		Vector3(CX, FLOOR_H - 0.35, CZ - 10),
+		Vector3(-8, FLOOR_H - 0.12, -4), Vector3(2, FLOOR_H - 0.12, -4),
+		Vector3(8, FLOOR_H - 0.12, 2), Vector3(14, FLOOR_H - 0.12, -2),
+		Vector3(5.5, FLOOR_H - 0.12, 14), Vector3(2, FLOOR_H - 0.12, 10),
+		Vector3(-10, FLOOR_H - 0.12, 10), Vector3(24, FLOOR_H - 0.12, 8),
+		Vector3(CX, FLOOR_H - 0.12, CZ - 8), Vector3(18, FLOOR_H - 0.12, 14),
 	]
 	for p in positions:
-		var l := _fluorescent(parent, p)
+		var l := _recessed_led(parent, p)
 		l.add_to_group("office_lights")
-	for p2 in [Vector3(14, FLOOR_H - 0.35, -2), Vector3(16, FLOOR_H - 0.35, 0)]:
-		var al := _fluorescent(parent, p2)
+	for p2 in [Vector3(14, FLOOR_H - 0.12, -2), Vector3(16, FLOOR_H - 0.12, 0)]:
+		var al := _recessed_led(parent, p2)
 		al.add_to_group("accounting_lights")
 		al.add_to_group("office_lights")
 	if floor_id == 1:
@@ -326,13 +342,16 @@ func _lights(parent: Node3D, floor_id: int) -> void:
 		parent.add_child(emerg)
 
 
-func _fluorescent(parent: Node3D, pos: Vector3) -> OmniLight3D:
-	_box(parent, pos, Vector3(2.4, 0.08, 0.35), mat_fixture)
+func _recessed_led(parent: Node3D, pos: Vector3) -> OmniLight3D:
+	# Square ceiling cassette + warm fill
+	_box(parent, pos, Vector3(1.15, 0.06, 1.15), mat_fixture)
+	var frame := _mat(Color(0.55, 0.55, 0.52))
+	_box(parent, pos + Vector3(0, 0.04, 0), Vector3(1.28, 0.04, 1.28), frame)
 	var l := OmniLight3D.new()
-	l.position = pos + Vector3(0, -0.12, 0)
-	l.omni_range = 10.0
-	l.light_color = Color(0.94, 0.96, 0.9)
-	l.light_energy = 0.5
+	l.position = pos + Vector3(0, -0.2, 0)
+	l.omni_range = 11.0
+	l.light_color = Color(1.0, 0.9, 0.72)
+	l.light_energy = 0.72
 	l.shadow_enabled = false
 	parent.add_child(l)
 	return l
@@ -341,6 +360,7 @@ func _fluorescent(parent: Node3D, pos: Vector3) -> OmniLight3D:
 func _interactables(parent: Node3D, floor_id: int, bank: Node = null) -> void:
 	var elev_pos := Vector3(5.5, 0, 16)
 	_spawn_elevator(parent, elev_pos, floor_id, bank)
+	_add_elevator_area_dressing(parent, elev_pos, floor_id)
 	if floor_id != 1:
 		_spawn_consumable(parent, Vector3(-8, 1.0, 0), "energy_drink", 1, "Взять энергетик")
 		_spawn_document(parent, Vector3(4, 1.05, 0), "2 этаж", "Архив ночной смены.\nЛифт — обратно на 1 этаж с пропуском.")
@@ -527,7 +547,6 @@ func _spawn_turnstile(parent: Node3D, pos: Vector3) -> void:
 
 
 func _spawn_elevator(parent: Node3D, pos: Vector3, floor_id: int, bank: Node = null) -> void:
-	# Clear wall behind shaft so opening reads as a real elevator cutout
 	if bank and bank.has_method("register_landing"):
 		bank.register_landing(floor_id, parent, pos)
 	else:
@@ -536,6 +555,38 @@ func _spawn_elevator(parent: Node3D, pos: Vector3, floor_id: int, bank: Node = n
 		land.set_meta("floor", floor_id)
 		land.add_to_group("elevator_landing")
 		parent.add_child(land)
+
+
+func _add_elevator_area_dressing(parent: Node3D, elev_pos: Vector3, floor_id: int) -> void:
+	# Glass office partition to the right of elevator
+	var gx := elev_pos.x + 3.2
+	_box(parent, Vector3(gx, 1.4, elev_pos.z - 0.2), Vector3(0.08, 2.6, 3.2), mat_glass)
+	_box(parent, Vector3(gx + 1.6, 1.4, elev_pos.z + 1.4), Vector3(3.2, 2.6, 0.08), mat_glass)
+	_box(parent, Vector3(gx, 1.4, elev_pos.z - 1.75), Vector3(0.12, 2.7, 0.12), mat_door)
+	_box(parent, Vector3(gx, 1.4, elev_pos.z + 1.35), Vector3(0.12, 2.7, 0.12), mat_door)
+	# Window bay to the left of elevator lobby → night city
+	for i in 3:
+		var wz := elev_pos.z - 1.5 + float(i) * 1.8
+		_box(parent, Vector3(elev_pos.x - 4.5, 1.7, wz), Vector3(0.06, 2.2, 1.5), mat_glass)
+		_box(parent, Vector3(elev_pos.x - 4.5, 1.7, wz - 0.85), Vector3(0.14, 2.4, 0.12), mat_door)
+	# Compliance poster to the right of doors
+	var sign_pos := elev_pos + Vector3(2.05, 1.65, 0.25)
+	_box(parent, sign_pos, Vector3(0.95, 0.6, 0.04), mat_door)
+	var lbl := Label3D.new()
+	lbl.text = "СОБЛЮДАЙТЕ КОМПЛАЕНС\nCOMPLIANCE IS MANDATORY"
+	lbl.font_size = 40
+	lbl.position = sign_pos + Vector3(0, 0, 0.05)
+	lbl.modulate = Color(0.95, 0.92, 0.85)
+	lbl.outline_modulate = Color(0.05, 0.05, 0.05)
+	lbl.outline_size = 6
+	parent.add_child(lbl)
+	if floor_id == 1:
+		var floor_mark := Label3D.new()
+		floor_mark.text = "1"
+		floor_mark.font_size = 96
+		floor_mark.position = elev_pos + Vector3(0, 2.72, 0.22)
+		floor_mark.modulate = Color(0.85, 0.92, 0.4)
+		parent.add_child(floor_mark)
 
 
 func _spawn_street_exit(parent: Node3D, pos: Vector3) -> void:

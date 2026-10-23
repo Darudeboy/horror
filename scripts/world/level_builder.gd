@@ -24,8 +24,13 @@ var mat_city: StandardMaterial3D
 func build() -> void:
 	_make_materials()
 	_build_city_backdrop()
-	_build_floor(0.0, 1)
-	_build_floor(FLOOR2_Y, 2)
+	var bank := Node3D.new()
+	bank.name = "ElevatorBank"
+	bank.set_script(load("res://scripts/interactions/elevator_bank.gd"))
+	add_child(bank)
+	bank.setup(mat_door, mat_door)
+	_build_floor(0.0, 1, bank)
+	_build_floor(FLOOR2_Y, 2, bank)
 	_add_navigation()
 	_add_fall_kill()
 
@@ -93,7 +98,7 @@ func _build_city_backdrop() -> void:
 	add_child(glow)
 
 
-func _build_floor(y0: float, floor_id: int) -> void:
+func _build_floor(y0: float, floor_id: int, bank: Node = null) -> void:
 	var root := Node3D.new()
 	root.name = "Floor%d" % floor_id
 	root.position = Vector3(0, y0, 0)
@@ -103,7 +108,7 @@ func _build_floor(y0: float, floor_id: int) -> void:
 	_windows(root)
 	_furniture(root, floor_id)
 	_lights(root, floor_id)
-	_interactables(root, floor_id)
+	_interactables(root, floor_id, bank)
 	_labels(root, floor_id)
 	if floor_id == 1:
 		_checkpoints(root)
@@ -333,9 +338,9 @@ func _fluorescent(parent: Node3D, pos: Vector3) -> OmniLight3D:
 	return l
 
 
-func _interactables(parent: Node3D, floor_id: int) -> void:
+func _interactables(parent: Node3D, floor_id: int, bank: Node = null) -> void:
 	var elev_pos := Vector3(5.5, 0, 16)
-	_spawn_elevator(parent, elev_pos, floor_id)
+	_spawn_elevator(parent, elev_pos, floor_id, bank)
 	if floor_id != 1:
 		_spawn_consumable(parent, Vector3(-8, 1.0, 0), "energy_drink", 1, "Взять энергетик")
 		_spawn_document(parent, Vector3(4, 1.05, 0), "2 этаж", "Архив ночной смены.\nЛифт — обратно на 1 этаж с пропуском.")
@@ -521,17 +526,16 @@ func _spawn_turnstile(parent: Node3D, pos: Vector3) -> void:
 	parent.add_child(t)
 
 
-func _spawn_elevator(parent: Node3D, pos: Vector3, floor_id: int) -> void:
-	var e: Node = _make_interactable_body("Elevator", pos + Vector3(0, 1.0, 0), Vector3(1.5, 2.2, 0.2), mat_door)
-	e.set_script(load("res://scripts/interactions/elevator.gd"))
-	parent.add_child(e)
-	_box(parent, pos + Vector3(0, FLOOR_H * 0.5, -1.0), Vector3(2.0, FLOOR_H, 2.0), mat_wall)
-	var land := Marker3D.new()
-	land.name = "ElevatorLanding_%d" % floor_id
-	land.position = pos
-	land.set_meta("floor", floor_id)
-	land.add_to_group("elevator_landing")
-	parent.add_child(land)
+func _spawn_elevator(parent: Node3D, pos: Vector3, floor_id: int, bank: Node = null) -> void:
+	# Clear wall behind shaft so opening reads as a real elevator cutout
+	if bank and bank.has_method("register_landing"):
+		bank.register_landing(floor_id, parent, pos)
+	else:
+		var land := Marker3D.new()
+		land.position = pos
+		land.set_meta("floor", floor_id)
+		land.add_to_group("elevator_landing")
+		parent.add_child(land)
 
 
 func _spawn_street_exit(parent: Node3D, pos: Vector3) -> void:

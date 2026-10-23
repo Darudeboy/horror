@@ -60,14 +60,10 @@ func _on_settings_changed() -> void:
 
 func _on_smoke_alarm(pos: Vector3) -> void:
 	AudioManager.play_sfx("alarm", 1.0, -2.0)
-	GameState.notification_requested.emit("СИГНАЛИЗАЦИЯ: задымление. Служба соответствия уведомлена.")
-	var enemy := get_tree().get_first_node_in_group("enemy")
-	if enemy and enemy.has_method("try_activate_safely"):
-		if not GameState.get_flag(GameState.FLAG_ENEMY_ACTIVATED):
-			if enemy.try_activate_safely():
-				GameState.set_flag(GameState.FLAG_ENEMY_ACTIVATED, true)
-		elif enemy.has_method("_on_noise"):
-			enemy._on_noise(pos, 22.0, "smoke_alarm")
+	GameState.notification_requested.emit("СИГНАЛИЗАЦИЯ: задымление")
+	# Enemy also listens to smoke_alarm and force-appears; reinforce flag here.
+	if not GameState.get_flag(GameState.FLAG_ENEMY_ACTIVATED):
+		GameState.set_flag(GameState.FLAG_ENEMY_ACTIVATED, true)
 
 
 func set_controls_enabled(enabled: bool) -> void:

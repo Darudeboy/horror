@@ -81,6 +81,7 @@ func _execute(event_id: String) -> void:
 		return
 	_running = true
 	event_started.emit(event_id)
+	var mark_done := true
 	match event_id:
 		"lights_out":
 			_lights_out()
@@ -92,12 +93,14 @@ func _execute(event_id: String) -> void:
 			_security_door()
 		"activate_enemy":
 			_activate_enemy()
+			mark_done = GameState.get_flag(GameState.FLAG_ENEMY_ACTIVATED)
 		"loop_setup":
 			pass
 		_:
 			push_warning("Unknown event: %s" % event_id)
-	completed[event_id] = true
-	event_completed.emit(event_id)
+	if mark_done:
+		completed[event_id] = true
+		event_completed.emit(event_id)
 	_running = false
 
 
@@ -130,16 +133,59 @@ func _security_door() -> void:
 
 func _activate_enemy() -> void:
 	var enemy := get_tree().get_first_node_in_group("enemy")
-	if enemy and enemy.has_method("try_activate_safely"):
-		if enemy.try_activate_safely():
-			GameState.set_flag(GameState.FLAG_ENEMY_ACTIVATED, true)
-		else:
-			# Defer: re-queue without marking complete
-			completed.erase("activate_enemy")
-			queue_event("activate_enemy")
+	var ok := false
+	if enemy and enemy.has_method("force_appear"):
+		ok = bool(enemy.force_appear())
+	elif enemy and enemy.has_method("try_activate_safely"):
+		ok = bool(enemy.try_activate_safely())
+		if not ok and enemy.has_method("activate"):
+			enemy.activate()
+			ok = true
 	elif enemy and enemy.has_method("activate"):
 		enemy.activate()
+		ok = true
+	if ok:
 		GameState.set_flag(GameState.FLAG_ENEMY_ACTIVATED, true)
+		_flicker_office_lights(2.8)
+		GameState.notification_requested.emit("СЛУЖБА СООТВЕТСТВИЯ НА ЭТАЖЕ")
+		AudioManager.play_sfx("alarm", 0.75, -6.0)
+	else:
+		# Do not mark complete — retry next frames
+		completed.erase("activate_enemy")
+		if "activate_enemy" not in queued:
+			queued.append("activate_enemy")
+
+
+func _flicker_office_lights(duration: float = 2.5) -> void:
+	if not SettingsManager.flicker_enabled:
+		return
+	var lights: Array = get_tree().get_nodes_in_group("office_lights")
+	if lights.is_empty():
+		lights = get_tree().get_nodes_in_group("accounting_lights")
+	var originals: Dictionary = {}
+	for l in lights:
+		if l is Light3D:
+			originals[l] = (l as Light3D).light_energy
+	var tw := create_tween()
+	var steps := 16
+	var step_t := duration / float(steps)
+	for _i in steps:
+		tw.tween_callback(func():
+			for l2 in originals.keys():
+				if not is_instance_valid(l2):
+					continue
+				var base_e: float = float(originals[l2])
+				if randf() < 0.4:
+					(l2 as Light3D).light_energy = 0.02
+				else:
+					(l2 as Light3D).light_energy = base_e * randf_range(0.2, 1.4)
+		)
+		tw.tween_interval(step_t)
+	tw.tween_callback(func():
+		for l3 in originals.keys():
+			if is_instance_valid(l3):
+				(l3 as Light3D).light_energy = float(originals[l3])
+	)
 
 
 func get_completed_event_ids() -> Array:

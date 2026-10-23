@@ -10,8 +10,8 @@ const VISION_RANGE := 12.0
 const VISION_ANGLE_DEG := 80.0
 const LOSE_SIGHT_TIME := 2.0
 const SEARCH_TIME := 8.0
-const CATCH_DISTANCE := 1.0
-const MIN_SPAWN_PATH_DIST := 12.0
+const CATCH_DISTANCE := 1.15
+const MIN_SPAWN_PATH_DIST := 7.0
 
 @export var patrol_points_path: NodePath
 
@@ -42,27 +42,66 @@ func _ready() -> void:
 
 
 func _attach_visual_model() -> void:
-	## Quaternius Ghost (CC0) as compliance silhouette; fallback keeps capsule.
+	## Quaternius Ghost (CC0) + dark overlay so silhouette reads in dim offices.
 	var path := "res://assets/models/enemy/compliance_officer.glb"
-	if not ResourceLoader.exists(path):
-		return
-	var packed: Resource = load(path)
-	if packed == null or not (packed is PackedScene):
-		return
-	var visual: Node = (packed as PackedScene).instantiate()
-	if visual is Node3D:
-		(visual as Node3D).scale = Vector3(1.9, 1.9, 1.9)
-		(visual as Node3D).position = Vector3(0, 0, 0)
-	add_child(visual)
-	var body := get_node_or_null("Body")
-	if body:
-		body.visible = false
-	var badge := get_node_or_null("Badge")
+	var body := get_node_or_null("Body") as MeshInstance3D
+	if ResourceLoader.exists(path):
+		var packed: Resource = load(path)
+		if packed is PackedScene:
+			var visual: Node = (packed as PackedScene).instantiate()
+			if visual is Node3D:
+				(visual as Node3D).scale = Vector3(2.05, 2.05, 2.05)
+				(visual as Node3D).position = Vector3(0, 0.05, 0)
+				_darken_meshes(visual)
+			add_child(visual)
+			if body:
+				body.visible = false
+	# Always keep badge + eye glow readable
+	var badge := get_node_or_null("Badge") as MeshInstance3D
 	if badge:
 		badge.visible = true
-		if badge is Node3D:
-			(badge as Node3D).position = Vector3(0.35, 1.5, 0.45)
-			(badge as Node3D).scale = Vector3(1.4, 1.4, 1.4)
+		badge.position = Vector3(0.28, 1.55, 0.5)
+		badge.scale = Vector3(1.6, 1.6, 1.6)
+		var bm := StandardMaterial3D.new()
+		bm.albedo_color = Color(0.95, 0.85, 0.2)
+		bm.emission_enabled = true
+		bm.emission = Color(1.0, 0.85, 0.2)
+		bm.emission_energy_multiplier = 2.5
+		badge.material_override = bm
+	# Eye glow (visible even if mesh fails)
+	var eyes := MeshInstance3D.new()
+	eyes.name = "Eyes"
+	var eye_mesh := BoxMesh.new()
+	eye_mesh.size = Vector3(0.28, 0.08, 0.06)
+	eyes.mesh = eye_mesh
+	eyes.position = Vector3(0, 1.85, 0.42)
+	var em := StandardMaterial3D.new()
+	em.albedo_color = Color(0.7, 0.05, 0.05)
+	em.emission_enabled = true
+	em.emission = Color(1.0, 0.15, 0.1)
+	em.emission_energy_multiplier = 3.5
+	eyes.material_override = em
+	add_child(eyes)
+	# Soft point light so figure is never fully invisible in dark
+	var aura := OmniLight3D.new()
+	aura.name = "PresenceLight"
+	aura.position = Vector3(0, 1.4, 0)
+	aura.omni_range = 3.5
+	aura.light_color = Color(0.55, 0.15, 0.12)
+	aura.light_energy = 0.55
+	aura.shadow_enabled = false
+	add_child(aura)
+
+
+func _darken_meshes(node: Node) -> void:
+	if node is MeshInstance3D:
+		var mi := node as MeshInstance3D
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(0.08, 0.09, 0.12)
+		mat.roughness = 0.85
+		mi.material_override = mat
+	for c in node.get_children():
+		_darken_meshes(c)
 
 
 func _collect_patrol() -> void:
@@ -85,36 +124,57 @@ func activate() -> void:
 	visible = true
 	set_physics_process(true)
 	state = State.PATROL
-	_set_target(_patrol_points[0])
+	if not _patrol_points.is_empty():
+		_set_target(_patrol_points[0])
+
+
+func force_appear() -> bool:
+	## Always spawn somewhere useful near the exit corridor so the player can see them.
+	var player := get_tree().get_first_node_in_group("player") as Node3D
+	var candidates: Array[Vector3] = [
+		Vector3(2.0, 0.1, 8.5),
+		Vector3(-2.0, 0.1, 6.0),
+		Vector3(6.0, 0.1, 6.0),
+		Vector3(2.0, 0.1, 4.5),
+	]
+	for p in _patrol_points:
+		candidates.append(p)
+	var best := Vector3(6.0, 0.1, 6.0)
+	var best_score := -9999.0
+	for p in candidates:
+		var score := 10.0
+		if player:
+			var dist := player.global_position.distance_to(p)
+			if dist < 4.0:
+				score -= 20.0
+			elif dist < 9.0:
+				score += 8.0 # prefer "visible but not on top of player"
+			elif dist < 16.0:
+				score += 4.0
+			else:
+				score -= 2.0
+			var cam := player.get_node_or_null("Head/Camera3D") as Camera3D
+			if cam:
+				var local := cam.to_local(p)
+				# Prefer slightly off-center in front so first appearance is seen
+				if local.z < -2.0 and absf(local.x) < 6.0:
+					score += 6.0
+		if score > best_score:
+			best_score = score
+			best = p
+	global_position = best
+	activate()
+	# Immediately investigate toward player / turnstile area
+	if player:
+		_investigate_pos = player.global_position
+		_last_known = player.global_position
+		state = State.INVESTIGATE
+		_set_target(player.global_position)
+	return true
 
 
 func try_activate_safely() -> bool:
-	var player := get_tree().get_first_node_in_group("player") as Node3D
-	if player == null:
-		activate()
-		return true
-	# Prefer patrol points out of view and far enough
-	var cam := player.get_node_or_null("Head/Camera3D") as Camera3D
-	var best: Vector3 = Vector3.ZERO
-	var found := false
-	for p in _patrol_points:
-		var dist := player.global_position.distance_to(p)
-		if dist < MIN_SPAWN_PATH_DIST:
-			continue
-		if cam:
-			var local := cam.to_local(p)
-			if local.z < 0.0: # in front of camera (Godot camera looks -Z)
-				var fov_ok := absf(rad_to_deg(atan2(local.x, -local.z))) < 50.0
-				if fov_ok and dist < VISION_RANGE + 4.0:
-					continue
-		best = p
-		found = true
-		break
-	if not found:
-		return false
-	global_position = best
-	activate()
-	return true
+	return force_appear()
 
 
 func get_state_name() -> String:

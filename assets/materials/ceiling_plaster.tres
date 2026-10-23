@@ -6,7 +6,7 @@
 
 [resource]
 resource_name = "CeilingPlaster"
-albedo_color = Color(1.35, 1.32, 1.25, 1)
+albedo_color = Color(0.95, 0.93, 0.88, 1)
 albedo_texture = ExtResource("1_color")
 roughness = 0.75
 roughness_texture = ExtResource("3_rough")

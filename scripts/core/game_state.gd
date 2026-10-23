@@ -14,6 +14,7 @@ const ITEM_EMPLOYEE_BADGE := "employee_badge"
 const ITEM_PRINTED_APPLICATION := "printed_application"
 const ITEM_ENERGY_DRINK := "energy_drink"
 const ITEM_CIGARETTES := "cigarettes"
+const ITEM_PHONE := "office_phone"
 
 const ACCESS_ACCOUNTING := "accounting_access"
 
@@ -37,9 +38,9 @@ const FLAG_LOOP_COMPLETED := "loop_corridor_completed"
 const FLAG_GAME_FINISHED := "game_finished"
 const FLAG_SMOKE_ALARM := "smoke_alarm_triggered"
 
-const ALL_KEY_ITEMS := [ITEM_EMPLOYEE_BADGE, ITEM_PRINTED_APPLICATION]
+const ALL_KEY_ITEMS := [ITEM_EMPLOYEE_BADGE, ITEM_PRINTED_APPLICATION, ITEM_PHONE]
 const ALL_CONSUMABLES := [ITEM_ENERGY_DRINK, ITEM_CIGARETTES]
-const ALL_ITEMS := [ITEM_EMPLOYEE_BADGE, ITEM_PRINTED_APPLICATION, ITEM_ENERGY_DRINK, ITEM_CIGARETTES]
+const ALL_ITEMS := [ITEM_EMPLOYEE_BADGE, ITEM_PRINTED_APPLICATION, ITEM_ENERGY_DRINK, ITEM_CIGARETTES, ITEM_PHONE]
 const ALL_ACCESS := [ACCESS_ACCOUNTING]
 const ALL_FLAGS := [
 	FLAG_WORKDAY_STARTED, FLAG_EXIT_CHECKED, FLAG_HR_BRIEFED,
@@ -67,6 +68,7 @@ var stamina: float = STAMINA_MAX
 var anxiety: float = 15.0
 var stamina_boost_until: float = 0.0
 var last_smoke_position: Vector3 = Vector3.ZERO
+var current_floor: int = 1 ## 1 or 2 for elevator
 
 
 func _ready() -> void:
@@ -97,8 +99,24 @@ func reset_run() -> void:
 	anxiety = 15.0
 	stamina_boost_until = 0.0
 	last_smoke_position = Vector3.ZERO
+	current_floor = 1
 	state_changed.emit("reset", "", null)
 	meters_changed.emit(stamina, anxiety)
+
+
+func grant_starter_kit() -> void:
+	## Test loadout for hotbar 1–4 and elevator travel.
+	consumables[ITEM_CIGARETTES] = 3
+	consumables[ITEM_ENERGY_DRINK] = 3
+	items[ITEM_EMPLOYEE_BADGE] = true
+	items[ITEM_PHONE] = true
+	access[ACCESS_ACCOUNTING] = true
+	item_changed.emit(ITEM_CIGARETTES, true)
+	item_changed.emit(ITEM_ENERGY_DRINK, true)
+	item_changed.emit(ITEM_EMPLOYEE_BADGE, true)
+	item_changed.emit(ITEM_PHONE, true)
+	access_changed.emit(ACCESS_ACCOUNTING, true)
+	notification_requested.emit("Тестовый набор: сигареты, энергетик, пропуск, телефон [1–4]")
 
 
 func has_item(item_id: String) -> bool:
@@ -135,6 +153,7 @@ func _item_name(item_id: String) -> String:
 		ITEM_PRINTED_APPLICATION: "Распечатанное заявление",
 		ITEM_ENERGY_DRINK: "Энергетик",
 		ITEM_CIGARETTES: "Сигареты",
+		ITEM_PHONE: "Служебный телефон",
 	}
 	return names.get(item_id, item_id)
 
@@ -268,17 +287,48 @@ func regen_stamina(delta: float, resting: bool) -> void:
 
 func get_owned_item_labels() -> PackedStringArray:
 	var result: PackedStringArray = []
-	if has_item(ITEM_EMPLOYEE_BADGE):
-		result.append("Пропуск")
+	var cig := get_consumable_count(ITEM_CIGARETTES)
+	result.append("1 Сигареты×%d" % cig)
+	var ed := get_consumable_count(ITEM_ENERGY_DRINK)
+	result.append("2 Энергетик×%d" % ed)
+	result.append("3 Пропуск%s" % (" ✓" if has_item(ITEM_EMPLOYEE_BADGE) else " —"))
+	result.append("4 Телефон%s" % (" ✓" if has_item(ITEM_PHONE) else " —"))
 	if has_item(ITEM_PRINTED_APPLICATION):
 		result.append("Заявление")
-	var ed := get_consumable_count(ITEM_ENERGY_DRINK)
-	if ed > 0:
-		result.append("Энергетик×%d [1]" % ed)
-	var cig := get_consumable_count(ITEM_CIGARETTES)
-	if cig > 0:
-		result.append("Сигареты×%d [2]" % cig)
+	result.append("Этаж %d" % current_floor)
 	return result
+
+
+func use_badge() -> bool:
+	if not has_item(ITEM_EMPLOYEE_BADGE):
+		notification_requested.emit("Нет пропуска")
+		return false
+	notification_requested.emit("Пропуск предъявлен (считыватели / лифт)")
+	return true
+
+
+func use_phone_distract(from_pos: Vector3) -> bool:
+	if not has_item(ITEM_PHONE):
+		notification_requested.emit("Нет служебного телефона")
+		return false
+	# Call a distant internal number → noise far from player to lure monster
+	var offsets: Array[Vector3] = [
+		Vector3(18, 0, -8), Vector3(-14, 0, 10), Vector3(22, 0, 8),
+		Vector3(-8, 0, -14), Vector3(10, 0, 14), Vector3(28, 0, -2),
+	]
+	var target: Vector3 = from_pos + offsets[randi() % offsets.size()]
+	target.y = from_pos.y
+	var exts: PackedStringArray = ["101", "214", "307", "415", "502"]
+	var ext: String = exts[randi() % exts.size()]
+	notification_requested.emit("Звонок на внутр. %s… отвлечение" % ext)
+	AudioManager.emit_noise(target, 28.0, "phone_distract")
+	var enemy := get_tree().get_first_node_in_group("enemy") if get_tree() else null
+	if enemy and enemy.has_method("_on_noise"):
+		if not get_flag(FLAG_ENEMY_ACTIVATED) and enemy.has_method("force_appear"):
+			enemy.force_appear()
+			set_flag(FLAG_ENEMY_ACTIVATED, true)
+		enemy._on_noise(target, 28.0, "phone_distract")
+	return true
 
 
 func to_save_dict() -> Dictionary:

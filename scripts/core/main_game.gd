@@ -23,12 +23,12 @@ func _ready() -> void:
 		var data := SaveManager.load_checkpoint()
 		apply_world_from_state(data)
 	else:
-		# Fresh run unless already mid-state
+		# Fresh run: give test hotbar + badge for elevator
 		if not GameState.get_flag(GameState.FLAG_WORKDAY_STARTED):
-			pass
+			GameState.grant_starter_kit()
 	task_manager.reset()
 	# Starting hint
-	GameState.notification_requested.emit("Рабочий день завершён. Проверьте терминал на столе.")
+	GameState.notification_requested.emit("Рабочий день завершён. Проверьте терминал. Лифт — с пропуском [3].")
 
 
 func _place_player() -> void:
@@ -39,9 +39,13 @@ func _place_player() -> void:
 
 func _setup_enemy() -> void:
 	if enemy and enemy.has_method("_collect_patrol"):
-		enemy.patrol_points_path = enemy.get_path_to(level_root.get_node("PatrolPoints"))
+		var pts := level_root.get_node_or_null("Floor1/PatrolPoints")
+		if pts == null:
+			pts = level_root.get_node_or_null("PatrolPoints")
+		if pts:
+			enemy.patrol_points_path = enemy.get_path_to(pts)
 		enemy._collect_patrol()
-		enemy.global_position = Vector3(6, 0.1, 6)
+		enemy.global_position = Vector3(6, 0.1, 8)
 		if GameState.get_flag(GameState.FLAG_ENEMY_ACTIVATED):
 			enemy.activate()
 

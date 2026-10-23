@@ -1,7 +1,14 @@
 extends Node3D
-## Expanded graybox office floor (2 m grid) with CC0 props and fluorescent grid.
+## Spacious two-floor office graybox with night-city windows.
 
-const PROP_SCALE := 2.8 ## Kenney furniture is small vs 1.8 m player
+const PROP_SCALE := 2.8
+const FLOOR_H := 3.2
+const FLOOR2_Y := 8.0
+## Floor footprint center / size
+const CX := 8.0
+const CZ := 2.0
+const SX := 60.0
+const SZ := 48.0
 
 var mat_wall: StandardMaterial3D
 var mat_floor: StandardMaterial3D
@@ -10,33 +17,45 @@ var mat_ceiling: StandardMaterial3D
 var mat_accent: StandardMaterial3D
 var mat_door: StandardMaterial3D
 var mat_fixture: StandardMaterial3D
+var mat_glass: StandardMaterial3D
+var mat_city: StandardMaterial3D
 
 
 func build() -> void:
 	_make_materials()
-	_build_shell()
-	_build_partitions()
-	_add_furniture()
-	_add_lights()
-	_add_interactables()
+	_build_city_backdrop()
+	_build_floor(0.0, 1)
+	_build_floor(FLOOR2_Y, 2)
 	_add_navigation()
-	_add_checkpoints()
-	_add_enemy_patrol()
 	_add_fall_kill()
-	_add_labels()
 
 
 func _make_materials() -> void:
-	mat_wall = _load_mat("res://assets/materials/wall_plaster.tres", Color(0.78, 0.74, 0.68))
-	mat_floor = _load_mat("res://assets/materials/floor_carpet.tres", Color(0.12, 0.18, 0.32))
-	mat_floor_tech = _load_mat("res://assets/materials/tech_floor_tiles.tres", Color(0.35, 0.36, 0.38))
-	mat_ceiling = _load_mat("res://assets/materials/ceiling_plaster.tres", Color(0.85, 0.85, 0.82))
+	mat_wall = _load_mat("res://assets/materials/wall_plaster.tres", Color(0.86, 0.84, 0.78))
+	# Force light beige-gray read even if texture is dark
+	mat_wall.albedo_color = Color(1.15, 1.12, 1.05, 1)
+	mat_floor = _load_mat("res://assets/materials/floor_carpet.tres", Color(0.14, 0.18, 0.28))
+	mat_floor_tech = _load_mat("res://assets/materials/tech_floor_tiles.tres", Color(0.4, 0.41, 0.43))
+	mat_ceiling = _load_mat("res://assets/materials/ceiling_plaster.tres", Color(0.92, 0.9, 0.86))
 	mat_accent = _load_mat("res://assets/materials/accent_sign.tres", Color(0.45, 0.62, 0.48))
-	mat_door = _load_mat("res://assets/materials/door_metal.tres", Color(0.35, 0.4, 0.48))
+	mat_door = _load_mat("res://assets/materials/door_metal.tres", Color(0.4, 0.44, 0.5))
 	mat_fixture = _mat(Color(0.98, 1.0, 0.94))
 	mat_fixture.emission_enabled = true
 	mat_fixture.emission = Color(0.95, 1.0, 0.88)
-	mat_fixture.emission_energy_multiplier = 2.4
+	mat_fixture.emission_energy_multiplier = 0.7
+	mat_glass = _mat(Color(0.55, 0.7, 0.85, 0.25))
+	mat_glass.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat_glass.roughness = 0.05
+	mat_glass.metallic = 0.2
+	mat_city = StandardMaterial3D.new()
+	mat_city.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if ResourceLoader.exists("res://assets/textures/city/night_city_view.jpg"):
+		mat_city.albedo_texture = load("res://assets/textures/city/night_city_view.jpg")
+	else:
+		mat_city.albedo_color = Color(0.05, 0.08, 0.18)
+	mat_city.emission_enabled = true
+	mat_city.emission = Color(0.15, 0.2, 0.35)
+	mat_city.emission_energy_multiplier = 0.45
 
 
 func _load_mat(path: String, fallback: Color) -> StandardMaterial3D:
@@ -54,83 +73,123 @@ func _mat(c: Color) -> StandardMaterial3D:
 	return m
 
 
-func _build_shell() -> void:
-	# Expanded floor: X -16..30, Z -16..18
-	_box(self, Vector3(7, -0.05, 1), Vector3(46, 0.1, 34), mat_floor)
-	_box(self, Vector3(7, 3.05, 1), Vector3(46, 0.1, 34), mat_ceiling)
-	_box(self, Vector3(7, 1.5, -16), Vector3(46, 3, 0.25), mat_wall)
-	_box(self, Vector3(7, 1.5, 18), Vector3(46, 3, 0.25), mat_wall)
-	_box(self, Vector3(-16, 1.5, 1), Vector3(0.25, 3, 34), mat_wall)
-	_box(self, Vector3(30, 1.5, 1), Vector3(0.25, 3, 34), mat_wall)
-	_box(self, Vector3(11, 0.0, -9), Vector3(6, 0.02, 6), mat_floor_tech)
-	_box(self, Vector3(-12, 0.0, -10), Vector3(6, 0.02, 6), mat_floor_tech) # storage linoleum patch
+func _build_city_backdrop() -> void:
+	# Large unlit planes outside the south glass wall
+	var city := MeshInstance3D.new()
+	city.name = "NightCity"
+	var plane := QuadMesh.new()
+	plane.size = Vector2(90, 28)
+	city.mesh = plane
+	city.material_override = mat_city
+	city.position = Vector3(CX, 10.0, -28.0)
+	# Quad faces +Z by default; rotate to face into the building (+Z toward office)
+	city.rotation_degrees = Vector3(0, 0, 0)
+	add_child(city)
+	var glow := OmniLight3D.new()
+	glow.position = Vector3(CX, 6.0, -24.0)
+	glow.omni_range = 18.0
+	glow.light_color = Color(0.35, 0.45, 0.75)
+	glow.light_energy = 0.35
+	add_child(glow)
 
 
-func _build_partitions() -> void:
-	# Main corridor wall Z=4
-	_wall_x_range(-16, -3, 4)
-	_wall_x_range(0.5, 3.5, 4)
-	_wall_x_range(7, 30, 4)
-	# HR
-	_wall_z_range(4, 10, -4)
-	_wall_x_range(-12, -4, 10)
-	# Accounting
-	_wall_z_range(-12, -3.5, 8)
-	_wall_z_range(-0.5, 4, 8)
-	_wall_x_range(8, 10.5, -6)
-	_wall_x_range(13, 16, -6)
-	_wall_z_range(-6, 2, 16)
-	# Server
-	_wall_z_range(-12, -6, 8)
-	_wall_x_range(8, 14, -12)
-	_wall_z_range(-12, -6, 14)
-	# Vestibule
-	_wall_x_range(-2, 0.5, 8)
-	_wall_x_range(3.5, 16, 8)
-	_wall_z_range(8, 14, -2)
-	_wall_z_range(8, 14, 6)
-	# Security / loop
-	_wall_z_range(4, 5.2, 16)
-	_wall_z_range(7.0, 10, 16)
-	_wall_x_range(16, 22, 10)
-	_wall_z_range(4, 10, 22)
-	_wall_x_range(16, 22, 4)
-	# Kitchen west wing: X=-16..-10, Z=-4..4 — wall at X=-10 with gap
-	_wall_z_range(-4, -0.8, -10)
-	_wall_z_range(0.8, 4, -10)
-	_wall_x_range(-16, -10, -4)
-	# Meeting room: X=-16..-10, Z=4..12
-	_wall_z_range(4, 12, -10)
-	_wall_x_range(-16, -10, 12)
-	# Archive east: X=22..30, Z=-8..2
-	_wall_z_range(-8, 2, 22)
-	_wall_x_range(22, 30, -8)
-	_wall_x_range(22, 26.5, 2)
-	_wall_x_range(28, 30, 2)
-	# Storage south: X=-4..6, Z=-16..-10
-	_wall_x_range(-4, 1.5, -10)
-	_wall_x_range(3.5, 6, -10)
-	_wall_z_range(-16, -10, -4)
-	_wall_z_range(-16, -10, 6)
-	# Break / copy annex near accounting: X=16..22, Z=-2..4
-	_wall_z_range(-2, 1.2, 22)
-	_wall_x_range(16, 22, -2)
+func _build_floor(y0: float, floor_id: int) -> void:
+	var root := Node3D.new()
+	root.name = "Floor%d" % floor_id
+	root.position = Vector3(0, y0, 0)
+	add_child(root)
+	_shell(root, floor_id)
+	_partitions(root, floor_id)
+	_windows(root)
+	_furniture(root, floor_id)
+	_lights(root, floor_id)
+	_interactables(root, floor_id)
+	_labels(root, floor_id)
+	if floor_id == 1:
+		_checkpoints(root)
+		_enemy_patrol(root)
+		_loop_trigger(root)
 
 
-func _wall_x_range(x0: float, x1: float, z: float) -> void:
+func _shell(parent: Node3D, floor_id: int) -> void:
+	_box(parent, Vector3(CX, -0.05, CZ), Vector3(SX, 0.1, SZ), mat_floor)
+	_box(parent, Vector3(CX, FLOOR_H + 0.05, CZ), Vector3(SX, 0.1, SZ), mat_ceiling)
+	# Outer walls — leave south wall open for window strip
+	_box(parent, Vector3(CX, FLOOR_H * 0.5, CZ + SZ * 0.5), Vector3(SX, FLOOR_H, 0.3), mat_wall) # north
+	_box(parent, Vector3(CX - SX * 0.5, FLOOR_H * 0.5, CZ), Vector3(0.3, FLOOR_H, SZ), mat_wall) # west
+	_box(parent, Vector3(CX + SX * 0.5, FLOOR_H * 0.5, CZ), Vector3(0.3, FLOOR_H, SZ), mat_wall) # east
+	# South: solid sides + window band in the middle
+	_box(parent, Vector3(CX - 22, FLOOR_H * 0.5, CZ - SZ * 0.5), Vector3(16, FLOOR_H, 0.3), mat_wall)
+	_box(parent, Vector3(CX + 22, FLOOR_H * 0.5, CZ - SZ * 0.5), Vector3(16, FLOOR_H, 0.3), mat_wall)
+	_box(parent, Vector3(CX, 0.35, CZ - SZ * 0.5), Vector3(28, 0.7, 0.3), mat_wall) # sill
+	_box(parent, Vector3(CX, FLOOR_H - 0.25, CZ - SZ * 0.5), Vector3(28, 0.5, 0.3), mat_wall) # lintel
+	if floor_id == 1:
+		_box(parent, Vector3(12, 0.0, -10), Vector3(8, 0.02, 8), mat_floor_tech)
+		_box(parent, Vector3(-12, 0.0, -12), Vector3(8, 0.02, 8), mat_floor_tech)
+
+
+func _windows(parent: Node3D) -> void:
+	# Glass panes looking at night city
+	for i in 5:
+		var x := CX - 10.0 + float(i) * 5.0
+		_box(parent, Vector3(x, 1.7, CZ - SZ * 0.5), Vector3(4.4, 2.0, 0.08), mat_glass)
+	# Thin mullions
+	for i in 6:
+		var x2 := CX - 12.0 + float(i) * 5.0
+		_box(parent, Vector3(x2, 1.7, CZ - SZ * 0.5), Vector3(0.12, 2.2, 0.2), mat_door)
+
+
+func _partitions(parent: Node3D, floor_id: int) -> void:
+	# Wide corridors (~4 m openings). Less wall clutter.
+	# Main east-west spine wall at Z=6 with wide gaps
+	_wall_x(parent, -22, -8, 6)
+	_wall_x(parent, -4, 2, 6)
+	_wall_x(parent, 8, 38, 6)
+	# HR wing north-west
+	_wall_z(parent, 6, 16, -6)
+	_wall_x(parent, -16, -6, 16)
+	# Accounting east of open space
+	_wall_z(parent, -14, 6, 10)
+	_wall_x(parent, 10, 22, -14)
+	# Server south of accounting
+	_wall_x(parent, 10, 20, -8)
+	_wall_z(parent, -14, -8, 20)
+	# Vestibule / exit north
+	_wall_x(parent, -4, 1, 12)
+	_wall_x(parent, 7, 22, 12)
+	_wall_z(parent, 12, 22, -4)
+	_wall_z(parent, 12, 22, 8)
+	# Security east
+	_wall_z(parent, 6, 16, 22)
+	_wall_x(parent, 22, 32, 16)
+	# Kitchen west
+	_wall_z(parent, -6, 4, -14)
+	_wall_x(parent, -22, -14, -6)
+	# Meeting
+	_wall_z(parent, 6, 16, -14)
+	_wall_x(parent, -22, -14, 16)
+	# Archive far east
+	_wall_z(parent, -12, 4, 28)
+	_wall_x(parent, 28, 38, -12)
+	if floor_id == 2:
+		# Floor 2: fewer rooms — open loft + archive + meeting
+		pass
+
+
+func _wall_x(parent: Node3D, x0: float, x1: float, z: float) -> void:
 	var mid := (x0 + x1) * 0.5
 	var len := absf(x1 - x0)
 	if len < 0.1:
 		return
-	_box(self, Vector3(mid, 1.5, z), Vector3(len, 3, 0.2), mat_wall)
+	_box(parent, Vector3(mid, FLOOR_H * 0.5, z), Vector3(len, FLOOR_H, 0.2), mat_wall)
 
 
-func _wall_z_range(z0: float, z1: float, x: float) -> void:
+func _wall_z(parent: Node3D, z0: float, z1: float, x: float) -> void:
 	var mid := (z0 + z1) * 0.5
 	var len := absf(z1 - z0)
 	if len < 0.1:
 		return
-	_box(self, Vector3(x, 1.5, mid), Vector3(0.2, 3, len), mat_wall)
+	_box(parent, Vector3(x, FLOOR_H * 0.5, mid), Vector3(0.2, FLOOR_H, len), mat_wall)
 
 
 func _box(parent: Node, pos: Vector3, size: Vector3, mat: Material) -> StaticBody3D:
@@ -153,26 +212,30 @@ func _box(parent: Node, pos: Vector3, size: Vector3, mat: Material) -> StaticBod
 	return body
 
 
-func _add_furniture() -> void:
-	_desk(Vector3(-6, 0, -4), true)
-	_desk(Vector3(2, 0, -4), false)
-	_desk(Vector3(-2, 0, -6), false)
-	_desk(Vector3(-7, 0, 7), false)
-	_desk(Vector3(12, 0, -1), false)
-	_desk(Vector3(-13, 0, 0), false) # kitchen table-ish
-	_desk(Vector3(-13, 0, 8), false) # meeting
-	_desk(Vector3(26, 0, -4), false) # archive
-	_desk(Vector3(0, 0, -13), false) # storage
-	_box(self, Vector3(10, 1.0, -9), Vector3(0.8, 2.0, 1.2), mat_door)
-	_box(self, Vector3(12, 1.0, -9), Vector3(0.8, 2.0, 1.2), mat_door)
-	_box(self, Vector3(25, 1.0, -6), Vector3(1.2, 2.0, 0.6), mat_door) # archive shelves
-	_box(self, Vector3(27, 1.0, -6), Vector3(1.2, 2.0, 0.6), mat_door)
+func _furniture(parent: Node3D, floor_id: int) -> void:
+	# Sparse desks — breathing room between props
+	_desk(parent, Vector3(-8, 0, -4), true)
+	_desk(parent, Vector3(0, 0, -4), false)
+	_desk(parent, Vector3(-10, 0, 10), false) # HR
+	_desk(parent, Vector3(14, 0, -2), false) # accounting
+	_desk(parent, Vector3(-18, 0, 0), false) # kitchen
+	_desk(parent, Vector3(-18, 0, 10), false) # meeting
+	_desk(parent, Vector3(32, 0, -4), false) # archive
+	_desk(parent, Vector3(24, 0, 10), false) # security
+	if floor_id == 2:
+		_desk(parent, Vector3(4, 0, 0), false)
+		_desk(parent, Vector3(16, 0, 8), false)
+		_desk(parent, Vector3(-10, 0, 8), false)
+	_box(parent, Vector3(12, 1.0, -11), Vector3(0.9, 2.0, 1.4), mat_door)
+	_box(parent, Vector3(15, 1.0, -11), Vector3(0.9, 2.0, 1.4), mat_door)
+	_box(parent, Vector3(-2, 0.4, 0), Vector3(1.3, 0.8, 0.55), mat_door)
+	_box(parent, Vector3(6, 0.35, 3), Vector3(1.5, 0.7, 0.5), mat_accent)
 
 
-func _desk(pos: Vector3, with_monitor: bool = false) -> void:
-	var visual_ok := _spawn_model("res://assets/models/kenney/desk.glb", pos, PROP_SCALE)
+func _desk(parent: Node3D, pos: Vector3, with_monitor: bool = false) -> void:
+	var visual_ok := _spawn_model(parent, "res://assets/models/kenney/desk.glb", pos, PROP_SCALE)
 	if not visual_ok:
-		_box(self, pos + Vector3(0, 0.4, 0), Vector3(1.6, 0.08, 0.9), mat_door)
+		_box(parent, pos + Vector3(0, 0.4, 0), Vector3(1.6, 0.08, 0.9), mat_door)
 	var col_body := StaticBody3D.new()
 	col_body.collision_layer = 1
 	col_body.position = pos + Vector3(0, 0.45, 0)
@@ -181,15 +244,15 @@ func _desk(pos: Vector3, with_monitor: bool = false) -> void:
 	shape.size = Vector3(1.8, 0.9, 1.0)
 	col.shape = shape
 	col_body.add_child(col)
-	add_child(col_body)
+	parent.add_child(col_body)
 	if with_monitor:
-		_spawn_model("res://assets/models/kenney/computerScreen.glb", pos + Vector3(0, 0.95, -0.2), PROP_SCALE)
-		_spawn_model("res://assets/models/kenney/computerKeyboard.glb", pos + Vector3(0, 0.92, 0.25), PROP_SCALE)
-	_spawn_model("res://assets/models/kenney/chairDesk.glb", pos + Vector3(0, 0, 1.1), PROP_SCALE)
-	_add_hide_spot(pos + Vector3(0, 0.35, 0.15), Vector3(1.6, 0.85, 1.2))
+		_spawn_model(parent, "res://assets/models/kenney/computerScreen.glb", pos + Vector3(0, 0.95, -0.2), PROP_SCALE)
+		_spawn_model(parent, "res://assets/models/kenney/computerKeyboard.glb", pos + Vector3(0, 0.92, 0.25), PROP_SCALE)
+	_spawn_model(parent, "res://assets/models/kenney/chairDesk.glb", pos + Vector3(0, 0, 1.1), PROP_SCALE)
+	_add_hide_spot(parent, pos + Vector3(0, 0.35, 0.15), Vector3(1.6, 0.85, 1.2))
 
 
-func _add_hide_spot(pos: Vector3, size: Vector3) -> void:
+func _add_hide_spot(parent: Node3D, pos: Vector3, size: Vector3) -> void:
 	var area := Area3D.new()
 	area.name = "HideSpot"
 	area.position = pos
@@ -203,10 +266,10 @@ func _add_hide_spot(pos: Vector3, size: Vector3) -> void:
 	shape.size = size
 	col.shape = shape
 	area.add_child(col)
-	add_child(area)
+	parent.add_child(area)
 
 
-func _spawn_model(path: String, pos: Vector3, scale: float, rot_y_deg: float = 0.0) -> bool:
+func _spawn_model(parent: Node, path: String, pos: Vector3, scale: float, rot_y_deg: float = 0.0) -> bool:
 	if not ResourceLoader.exists(path):
 		return false
 	var packed: Resource = load(path)
@@ -217,98 +280,99 @@ func _spawn_model(path: String, pos: Vector3, scale: float, rot_y_deg: float = 0
 		(node as Node3D).position = pos
 		(node as Node3D).scale = Vector3.ONE * scale
 		(node as Node3D).rotation_degrees.y = rot_y_deg
-	add_child(node)
+	parent.add_child(node)
 	return true
 
 
-func _add_lights() -> void:
-	var env := WorldEnvironment.new()
-	var e := Environment.new()
-	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.12, 0.13, 0.15)
-	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.55, 0.58, 0.6)
-	e.ambient_light_energy = 0.55
-	env.environment = e
-	add_child(env)
-	# Uniform fluorescent grid — denser and brighter
-	var xs := range(-14, 29, 3)
-	var zs := range(-14, 17, 3)
-	for x in xs:
-		for z in zs:
-			_fluorescent(Vector3(float(x), 2.85, float(z)), Vector3(2.6, 0.1, 0.4))
-	for p in [Vector3(12, 2.85, -2), Vector3(14, 2.85, 0), Vector3(10, 2.85, -1)]:
-		var l := _fluorescent(p, Vector3(2.6, 0.1, 0.4), true)
-		l.add_to_group("accounting_lights")
-	var emerg := _omni(Vector3(13, 2.2, -5), 6.0)
-	emerg.light_color = Color(0.4, 0.9, 0.5)
-	emerg.light_energy = 0.0
-	emerg.visible = false
-	emerg.add_to_group("emergency_lights")
+func _lights(parent: Node3D, floor_id: int) -> void:
+	if floor_id == 1:
+		var env := WorldEnvironment.new()
+		var e := Environment.new()
+		e.background_mode = Environment.BG_COLOR
+		e.background_color = Color(0.05, 0.06, 0.08)
+		e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		e.ambient_light_color = Color(0.45, 0.44, 0.4)
+		e.ambient_light_energy = 0.28
+		env.environment = e
+		parent.add_child(env)
+	var positions: Array[Vector3] = [
+		Vector3(-8, FLOOR_H - 0.35, -4), Vector3(2, FLOOR_H - 0.35, -4),
+		Vector3(14, FLOOR_H - 0.35, -2), Vector3(24, FLOOR_H - 0.35, 2),
+		Vector3(-18, FLOOR_H - 0.35, 0), Vector3(-10, FLOOR_H - 0.35, 10),
+		Vector3(2, FLOOR_H - 0.35, 14), Vector3(24, FLOOR_H - 0.35, 10),
+		Vector3(32, FLOOR_H - 0.35, -4), Vector3(14, FLOOR_H - 0.35, -11),
+		Vector3(CX, FLOOR_H - 0.35, CZ - 10),
+	]
+	for p in positions:
+		var l := _fluorescent(parent, p)
+		l.add_to_group("office_lights")
+	for p2 in [Vector3(14, FLOOR_H - 0.35, -2), Vector3(16, FLOOR_H - 0.35, 0)]:
+		var al := _fluorescent(parent, p2)
+		al.add_to_group("accounting_lights")
+		al.add_to_group("office_lights")
+	if floor_id == 1:
+		var emerg := OmniLight3D.new()
+		emerg.position = Vector3(14, 2.2, -10)
+		emerg.omni_range = 6.0
+		emerg.light_color = Color(0.4, 0.9, 0.5)
+		emerg.light_energy = 0.0
+		emerg.visible = false
+		emerg.add_to_group("emergency_lights")
+		parent.add_child(emerg)
 
 
-func _fluorescent(pos: Vector3, size: Vector3, return_omni: bool = false) -> OmniLight3D:
-	_box(self, pos, size, mat_fixture)
+func _fluorescent(parent: Node3D, pos: Vector3) -> OmniLight3D:
+	_box(parent, pos, Vector3(2.4, 0.08, 0.35), mat_fixture)
 	var l := OmniLight3D.new()
 	l.position = pos + Vector3(0, -0.12, 0)
-	l.omni_range = 7.0
-	l.light_color = Color(0.95, 0.98, 0.9)
-	l.light_energy = 1.35
+	l.omni_range = 10.0
+	l.light_color = Color(0.94, 0.96, 0.9)
+	l.light_energy = 0.5
 	l.shadow_enabled = false
-	add_child(l)
+	parent.add_child(l)
 	return l
 
 
-func _omni(pos: Vector3, dist: float) -> OmniLight3D:
-	var l := OmniLight3D.new()
-	l.position = pos
-	l.omni_range = dist
-	l.light_color = Color(0.85, 0.9, 0.95)
-	l.light_energy = 1.0
-	l.shadow_enabled = false
-	add_child(l)
-	return l
-
-
-func _add_interactables() -> void:
-	_spawn_terminal("DeskTerminal", Vector3(-6, 1.05, -3.3), 0)
-	_spawn_terminal("HRTerminal", Vector3(-7, 1.05, 7.6), 1)
-	_spawn_terminal("AccTerminal", Vector3(12, 1.05, -0.4), 2)
-	_spawn_terminal("SecTerminal", Vector3(19, 1.05, 7.6), 3)
-	_spawn_document(Vector3(-6.4, 1.05, 6.6), "Заметка HR", "Для доступа в бухгалтерию возьмите пропуск\nна столе отсутствующего коллеги в open space.\n\nПропуск также нужен для турникета и лифта.")
-	_spawn_document(Vector3(11.4, 1.05, -0.15), "Инструкция", "Шум оборудования может вызвать проверку.\nПри отключении питания используйте технический щит в серверной.\n\nКурение в здании запрещено — датчики дыма активны.")
-	_spawn_document(Vector3(-13, 1.05, 0.4), "Кухня", "Энергетики в автомате / на столе.\nСигареты — только вне здания (но кто-то оставил пачку).")
-	_spawn_badge(Vector3(2, 1.05, -3.3))
-	_spawn_printer(Vector3(14.5, 0.0, 0.5))
-	_spawn_power(Vector3(9.5, 1.0, -10.5))
-	_spawn_phone(Vector3(4, 1.0, 6))
-	_spawn_poster(Vector3(1, 1.7, 3.85))
-	_spawn_door("accounting", Vector3(8, 0, -2), Vector3(0, 90, 0), true, "accounting_access")
-	_spawn_door("security_passage", Vector3(16, 0, 6), Vector3(0, 90, 0), true, "")
-	_spawn_turnstile(Vector3(2, 0, 12.5))
-	_spawn_elevator(Vector3(4.5, 0, 13))
-	_spawn_loop_trigger()
-	_spawn_consumable(Vector3(-5.2, 1.0, -3.2), "energy_drink", 1, "Взять энергетик")
-	_spawn_consumable(Vector3(-13.5, 1.0, -1.0), "energy_drink", 2, "Взять энергетик")
-	_spawn_consumable(Vector3(-12.5, 1.0, 8.5), "energy_drink", 1, "Взять энергетик")
-	_spawn_consumable(Vector3(0.5, 1.0, -13.2), "cigarettes", 1, "Взять сигареты")
-	_spawn_consumable(Vector3(18, 1.0, 0), "cigarettes", 1, "Взять сигареты")
-	# Extra hide spots for chase
-	_add_hide_spot(Vector3(-13, 0.4, 0), Vector3(2.0, 1.0, 2.0))
-	_add_hide_spot(Vector3(0, 0.4, -13), Vector3(2.2, 1.0, 2.2))
-	_add_hide_spot(Vector3(26, 0.4, -4), Vector3(2.0, 1.0, 2.0))
+func _interactables(parent: Node3D, floor_id: int) -> void:
+	var elev_pos := Vector3(5.5, 0, 16)
+	_spawn_elevator(parent, elev_pos, floor_id)
+	if floor_id != 1:
+		_spawn_consumable(parent, Vector3(-8, 1.0, 0), "energy_drink", 1, "Взять энергетик")
+		_spawn_document(parent, Vector3(4, 1.05, 0), "2 этаж", "Архив ночной смены.\nЛифт — обратно на 1 этаж с пропуском.")
+		return
+	_spawn_terminal(parent, "DeskTerminal", Vector3(-8, 1.05, -3.3), 0)
+	_spawn_terminal(parent, "HRTerminal", Vector3(-10, 1.05, 10.6), 1)
+	_spawn_terminal(parent, "AccTerminal", Vector3(14, 1.05, -1.4), 2)
+	_spawn_terminal(parent, "SecTerminal", Vector3(24, 1.05, 10.6), 3)
+	_spawn_document(parent, Vector3(-8.4, 1.05, 9.5), "Заметка HR", "Пропуск для турникета и лифта.\nТелефон [4] — внутренние номера отвлекают службу соответствия.")
+	_spawn_document(parent, Vector3(13.4, 1.05, -1.15), "Инструкция", "Шум оборудования вызывает проверку.\nКурение поднимает датчики дыма.")
+	_spawn_badge(parent, Vector3(2, 1.05, -3.3))
+	_spawn_printer(parent, Vector3(17, 0.0, 0.5))
+	_spawn_power(parent, Vector3(12, 1.0, -11.5))
+	_spawn_phone(parent, Vector3(4, 1.0, 8))
+	_spawn_poster(parent, Vector3(1, 1.7, 5.85))
+	_spawn_door(parent, "accounting", Vector3(10, 0, -2), Vector3(0, 90, 0), true, "accounting_access")
+	_spawn_door(parent, "security_passage", Vector3(22, 0, 8), Vector3(0, 90, 0), true, "")
+	_spawn_turnstile(parent, Vector3(2, 0, 15))
+	_spawn_street_exit(parent, Vector3(2, 0, 20))
+	_spawn_consumable(parent, Vector3(-6.5, 1.0, -3.2), "energy_drink", 1, "Взять энергетик")
+	_spawn_consumable(parent, Vector3(-18, 1.0, -1.0), "energy_drink", 2, "Взять энергетик")
+	_spawn_consumable(parent, Vector3(0.5, 1.0, -14), "cigarettes", 1, "Взять сигареты")
+	_spawn_consumable(parent, Vector3(30, 1.0, 0), "cigarettes", 1, "Взять сигареты")
+	_add_hide_spot(parent, Vector3(-18, 0.4, 0), Vector3(2.0, 1.0, 2.0))
+	_add_hide_spot(parent, Vector3(32, 0.4, -4), Vector3(2.0, 1.0, 2.0))
 	var zone := Area3D.new()
-	zone.position = Vector3(12, 1, -2)
+	zone.position = Vector3(14, 1, -2)
 	zone.add_to_group("event_zone_lights_out")
 	var zcol := CollisionShape3D.new()
 	var zshape := BoxShape3D.new()
-	zshape.size = Vector3(8, 3, 8)
+	zshape.size = Vector3(10, 3, 10)
 	zcol.shape = zshape
 	zone.add_child(zcol)
-	add_child(zone)
+	parent.add_child(zone)
 
 
-func _spawn_consumable(pos: Vector3, item_id: String, amount: int, label: String) -> void:
+func _spawn_consumable(parent: Node3D, pos: Vector3, item_id: String, amount: int, label: String) -> void:
 	var size := Vector3(0.25, 0.35, 0.25)
 	var mat := mat_accent
 	if item_id == "cigarettes":
@@ -319,79 +383,64 @@ func _spawn_consumable(pos: Vector3, item_id: String, amount: int, label: String
 	n.set("item_id", item_id)
 	n.set("amount", amount)
 	n.set("pickup_label", label)
-	add_child(n)
+	parent.add_child(n)
 
 
-func _spawn_terminal(n: String, pos: Vector3, kind: int) -> void:
-	var t: Node = _make_interactable_body(n, pos, Vector3(0.5, 0.4, 0.4), mat_accent)
+func _spawn_terminal(parent: Node3D, n: String, pos: Vector3, kind: int) -> void:
+	var t: Node = _make_interactable_body(n, pos, Vector3(0.55, 0.45, 0.4), mat_door)
 	t.set_script(load("res://scripts/interactions/terminal.gd"))
 	t.set("kind", kind)
 	t.set("terminal_id", n)
-	add_child(t)
+	parent.add_child(t)
 
 
-func _spawn_document(pos: Vector3, title: String, body: String) -> void:
+func _spawn_document(parent: Node3D, pos: Vector3, title: String, body: String) -> void:
 	var d: Node = _make_interactable_body("Document", pos, Vector3(0.3, 0.05, 0.4), mat_ceiling)
 	d.set_script(load("res://scripts/interactions/readable_document.gd"))
 	d.set("document_title", title)
 	d.set("document_body", body)
-	add_child(d)
+	parent.add_child(d)
 
 
-func _spawn_badge(pos: Vector3) -> void:
-	if not _spawn_model("res://assets/models/props/keycard.glb", pos, 2.0):
-		pass
-	var p: Node = _make_interactable_body("Badge", pos, Vector3(0.25, 0.08, 0.18), mat_accent)
-	p.set_script(load("res://scripts/interactions/pickup_item.gd"))
-	p.set("item_id", "employee_badge")
-	p.set("grant_access", "accounting_access")
-	p.set("pickup_label", "Взять пропуск")
-	add_child(p)
+func _spawn_badge(parent: Node3D, pos: Vector3) -> void:
+	if not _spawn_model(parent, "res://assets/models/props/keycard.glb", pos, 2.0):
+		_box(parent, pos, Vector3(0.2, 0.05, 0.12), mat_accent)
+	var n: Node = _make_interactable_body("Badge", pos, Vector3(0.35, 0.2, 0.25), mat_accent)
+	n.set_script(load("res://scripts/interactions/pickup_item.gd"))
+	n.set("item_id", "employee_badge")
+	n.set("grant_access", "accounting_access")
+	parent.add_child(n)
 
 
-func _spawn_printer(pos: Vector3) -> void:
+func _spawn_printer(parent: Node3D, pos: Vector3) -> void:
 	var tray: Node = _make_interactable_body("ApplicationTray", pos + Vector3(0.75, 0.85, 0), Vector3(0.28, 0.05, 0.32), mat_ceiling)
-	tray.set_script(load("res://scripts/interactions/pickup_item.gd"))
-	tray.set("item_id", "printed_application")
-	tray.set("pickup_label", "Взять заявление")
 	tray.visible = false
-	var pr: Node = _make_interactable_body("Printer", pos + Vector3(0, 0.55, 0), Vector3(0.85, 1.0, 0.7), mat_door)
-	pr.set_script(load("res://scripts/interactions/printer.gd"))
-	pr.set("tray_item_path", NodePath("../ApplicationTray"))
-	# Hide box mesh if GLB present — keep collision via body
-	_spawn_model("res://assets/models/props/printer.glb", pos, 1.8)
-	add_child(tray)
-	add_child(pr)
+	parent.add_child(tray)
+	var p: Node = _make_interactable_body("Printer", pos + Vector3(0, 0.7, 0), Vector3(0.7, 1.0, 0.6), mat_door)
+	p.set_script(load("res://scripts/interactions/printer.gd"))
+	_spawn_model(parent, "res://assets/models/props/printer.glb", pos, 1.8)
+	parent.add_child(p)
 
 
-func _spawn_power(pos: Vector3) -> void:
-	var p: Node = _make_interactable_body("PowerPanel", pos, Vector3(0.4, 1.2, 0.2), mat_accent)
-	p.set_script(load("res://scripts/interactions/power_panel.gd"))
-	add_child(p)
+func _spawn_power(parent: Node3D, pos: Vector3) -> void:
+	var n: Node = _make_interactable_body("PowerPanel", pos, Vector3(0.4, 0.8, 0.2), mat_door)
+	n.set_script(load("res://scripts/interactions/power_panel.gd"))
+	parent.add_child(n)
 
 
-func _spawn_phone(pos: Vector3) -> void:
-	var p: Node = _make_interactable_body("Phone", pos, Vector3(0.2, 0.2, 0.25), mat_door)
-	p.set_script(load("res://scripts/interactions/phone.gd"))
-	p.visible = false
-	add_child(p)
+func _spawn_phone(parent: Node3D, pos: Vector3) -> void:
+	var n: Node = _make_interactable_body("Phone", pos, Vector3(0.25, 0.35, 0.25), mat_accent)
+	n.set_script(load("res://scripts/interactions/phone.gd"))
+	parent.add_child(n)
 
 
-func _spawn_poster(pos: Vector3) -> void:
-	var root := Node3D.new()
-	root.name = "Poster"
-	root.position = pos
-	var label := Label3D.new()
-	label.name = "Label3D"
-	label.text = "Мы ценим ваше присутствие"
-	label.font_size = 42
-	label.modulate = Color(0.9, 0.9, 0.85)
-	root.add_child(label)
-	root.set_script(load("res://scripts/interactions/poster.gd"))
-	add_child(root)
+func _spawn_poster(parent: Node3D, pos: Vector3) -> void:
+	var n: Node = _make_interactable_body("Poster", pos, Vector3(1.0, 1.2, 0.05), mat_accent)
+	n.set_script(load("res://scripts/interactions/poster.gd"))
+	parent.add_child(n)
 
 
-func _spawn_door(door_id: String, pos: Vector3, rot_deg: Vector3, locked: bool, access: String = "") -> void:
+func _spawn_door(parent: Node3D, door_id: String, pos: Vector3, rot_deg: Vector3, locked: bool, access: String = "") -> void:
 	var door := Node3D.new()
 	door.name = "Door_%s" % door_id
 	door.position = pos
@@ -404,7 +453,6 @@ func _spawn_door(door_id: String, pos: Vector3, rot_deg: Vector3, locked: bool, 
 	body.collision_layer = 5
 	pivot.add_child(body)
 	var mesh := MeshInstance3D.new()
-	mesh.name = "MeshInstance3D"
 	var box := BoxMesh.new()
 	box.size = Vector3(1.1, 2.2, 0.12)
 	mesh.mesh = box
@@ -416,7 +464,7 @@ func _spawn_door(door_id: String, pos: Vector3, rot_deg: Vector3, locked: bool, 
 	col.shape = shape
 	body.add_child(col)
 	door.set_script(load("res://scripts/interactions/door.gd"))
-	add_child(door)
+	parent.add_child(door)
 	door.set("door_id", door_id)
 	door.set("locked", locked)
 	door.set("required_access", access)
@@ -433,17 +481,16 @@ func _spawn_door(door_id: String, pos: Vector3, rot_deg: Vector3, locked: bool, 
 		zshape.size = Vector3(3, 3, 3)
 		zcol.shape = zshape
 		zone.add_child(zcol)
-		add_child(zone)
+		parent.add_child(zone)
 
 
-func _spawn_turnstile(pos: Vector3) -> void:
+func _spawn_turnstile(parent: Node3D, pos: Vector3) -> void:
 	var t := Node3D.new()
 	t.name = "Turnstile"
 	t.position = pos
-	# Visual barriers (CC0)
-	_spawn_model("res://assets/models/props/barrier_single.glb", pos + Vector3(-0.7, 0, 0), 1.6, 90)
-	_spawn_model("res://assets/models/props/barrier_single.glb", pos + Vector3(0.7, 0, 0), 1.6, -90)
-	_spawn_model("res://assets/models/props/barrier_large.glb", pos + Vector3(0, 0, -0.4), 1.2, 0)
+	_spawn_model(parent, "res://assets/models/props/barrier_single.glb", pos + Vector3(-0.7, 0, 0), 1.6, 90)
+	_spawn_model(parent, "res://assets/models/props/barrier_single.glb", pos + Vector3(0.7, 0, 0), 1.6, -90)
+	_spawn_model(parent, "res://assets/models/props/barrier_large.glb", pos + Vector3(0, 0, -0.4), 1.2, 0)
 	var ibody := StaticBody3D.new()
 	ibody.collision_layer = 4
 	t.add_child(ibody)
@@ -471,47 +518,59 @@ func _spawn_turnstile(pos: Vector3) -> void:
 	bmesh.position = Vector3(0, 0.8, 0)
 	blocker.add_child(bmesh)
 	t.set_script(load("res://scripts/interactions/turnstile.gd"))
-	add_child(t)
+	parent.add_child(t)
 
 
-func _spawn_elevator(pos: Vector3) -> void:
+func _spawn_elevator(parent: Node3D, pos: Vector3, floor_id: int) -> void:
 	var e: Node = _make_interactable_body("Elevator", pos + Vector3(0, 1.0, 0), Vector3(1.5, 2.2, 0.2), mat_door)
 	e.set_script(load("res://scripts/interactions/elevator.gd"))
-	add_child(e)
-	_box(self, pos + Vector3(0, 1.1, -0.8), Vector3(1.6, 2.2, 1.4), mat_wall)
+	parent.add_child(e)
+	_box(parent, pos + Vector3(0, FLOOR_H * 0.5, -1.0), Vector3(2.0, FLOOR_H, 2.0), mat_wall)
+	var land := Marker3D.new()
+	land.name = "ElevatorLanding_%d" % floor_id
+	land.position = pos
+	land.set_meta("floor", floor_id)
+	land.add_to_group("elevator_landing")
+	parent.add_child(land)
 
 
-func _spawn_loop_trigger() -> void:
+func _spawn_street_exit(parent: Node3D, pos: Vector3) -> void:
+	var e: Node = _make_interactable_body("StreetExit", pos + Vector3(0, 1.0, 0), Vector3(1.8, 2.2, 0.25), mat_accent)
+	e.set_script(load("res://scripts/interactions/street_exit.gd"))
+	parent.add_child(e)
+
+
+func _loop_trigger(parent: Node3D) -> void:
 	var area := Area3D.new()
 	area.name = "LoopTrigger"
-	area.position = Vector3(17.5, 1, 5)
+	area.position = Vector3(24, 1, 8)
 	area.monitoring = true
 	area.collision_layer = 0
 	area.collision_mask = 2
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(1.8, 2, 1.8)
+	shape.size = Vector3(2.0, 2, 2.0)
 	col.shape = shape
 	area.add_child(col)
-	add_child(area)
+	parent.add_child(area)
 	area.body_entered.connect(_on_loop_enter)
 	var hint := Label3D.new()
 	hint.name = "LoopExitHint"
 	hint.text = "ВЫХОД →"
-	hint.position = Vector3(19.2, 1.8, 5.5)
+	hint.position = Vector3(26, 1.8, 9)
 	hint.font_size = 64
 	hint.modulate = Color(0.45, 0.75, 0.5)
 	hint.visible = false
 	hint.add_to_group("loop_exit_hint")
-	add_child(hint)
+	parent.add_child(hint)
 	var ret := Marker3D.new()
-	ret.position = Vector3(15.2, 0.1, 5)
+	ret.position = Vector3(21, 0.1, 8)
 	ret.add_to_group("loop_return")
-	add_child(ret)
+	parent.add_child(ret)
 	var correct := Marker3D.new()
-	correct.position = Vector3(19, 0.1, 7)
+	correct.position = Vector3(26, 0.1, 10)
 	correct.add_to_group("loop_correct")
-	add_child(correct)
+	parent.add_child(correct)
 
 
 func _on_loop_enter(body: Node) -> void:
@@ -568,24 +627,29 @@ func _add_navigation() -> void:
 	mesh.cell_size = 0.25
 	mesh.agent_radius = 0.4
 	mesh.agent_height = 1.8
+	# Floor 1 nav plane
 	mesh.vertices = PackedVector3Array([
-		Vector3(-15.5, 0.05, -15.5), Vector3(29.5, 0.05, -15.5),
-		Vector3(29.5, 0.05, 17.5), Vector3(-15.5, 0.05, 17.5)
+		Vector3(-21, 0.05, -21), Vector3(37, 0.05, -21),
+		Vector3(37, 0.05, 25), Vector3(-21, 0.05, 25),
+		# Floor 2
+		Vector3(-21, FLOOR2_Y + 0.05, -21), Vector3(37, FLOOR2_Y + 0.05, -21),
+		Vector3(37, FLOOR2_Y + 0.05, 25), Vector3(-21, FLOOR2_Y + 0.05, 25),
 	])
 	mesh.add_polygon(PackedInt32Array([0, 1, 2, 3]))
+	mesh.add_polygon(PackedInt32Array([4, 5, 6, 7]))
 	region.navigation_mesh = mesh
 
 
-func _add_checkpoints() -> void:
-	_marker("spawn", Vector3(-6, 0.1, -3), true)
-	_marker("after_exit_check", Vector3(2, 0.1, 11), false)
-	_marker("after_power", Vector3(11, 0.1, -9), false)
-	_marker("after_hr", Vector3(-7, 0.1, 6), false)
-	_marker("after_accounting", Vector3(12, 0.1, -2), false)
-	_marker("after_security", Vector3(19, 0.1, 6), false)
+func _checkpoints(parent: Node3D) -> void:
+	_marker(parent, "spawn", Vector3(-8, 0.1, -3), true)
+	_marker(parent, "after_exit_check", Vector3(2, 0.1, 14), false)
+	_marker(parent, "after_power", Vector3(12, 0.1, -11), false)
+	_marker(parent, "after_hr", Vector3(-10, 0.1, 9), false)
+	_marker(parent, "after_accounting", Vector3(14, 0.1, -2), false)
+	_marker(parent, "after_security", Vector3(24, 0.1, 9), false)
 
 
-func _marker(id: String, pos: Vector3, is_spawn: bool) -> void:
+func _marker(parent: Node3D, id: String, pos: Vector3, is_spawn: bool) -> void:
 	var m := Marker3D.new()
 	m.name = "Checkpoint_%s" % id
 	m.position = pos
@@ -593,17 +657,17 @@ func _marker(id: String, pos: Vector3, is_spawn: bool) -> void:
 	m.add_to_group("checkpoint")
 	if is_spawn:
 		m.add_to_group("player_spawn")
-	add_child(m)
+	parent.add_child(m)
 
 
-func _add_enemy_patrol() -> void:
+func _enemy_patrol(parent: Node3D) -> void:
 	var pts := Node3D.new()
 	pts.name = "PatrolPoints"
-	add_child(pts)
+	parent.add_child(pts)
 	for p in [
-		Vector3(6, 0.1, 6), Vector3(-2, 0.1, 6), Vector3(12, 0.1, 2),
-		Vector3(10, 0.1, -8), Vector3(2, 0.1, 10), Vector3(-12, 0.1, 0),
-		Vector3(26, 0.1, -3), Vector3(0, 0.1, -12)
+		Vector3(6, 0.1, 8), Vector3(-4, 0.1, 8), Vector3(14, 0.1, 2),
+		Vector3(12, 0.1, -10), Vector3(2, 0.1, 14), Vector3(-16, 0.1, 0),
+		Vector3(30, 0.1, -4), Vector3(0, 0.1, -12)
 	]:
 		var m := Marker3D.new()
 		m.position = p
@@ -612,11 +676,11 @@ func _add_enemy_patrol() -> void:
 
 func _add_fall_kill() -> void:
 	var area := Area3D.new()
-	area.position = Vector3(7, -6, 1)
+	area.position = Vector3(CX, -8, CZ)
 	area.collision_mask = 2
 	var col := CollisionShape3D.new()
 	var shape := BoxShape3D.new()
-	shape.size = Vector3(100, 2, 100)
+	shape.size = Vector3(120, 2, 120)
 	col.shape = shape
 	area.add_child(col)
 	add_child(area)
@@ -629,22 +693,25 @@ func _add_fall_kill() -> void:
 	)
 
 
-func _add_labels() -> void:
-	_sign(Vector3(-7, 2.2, 4.3), "HR")
-	_sign(Vector3(12, 2.2, 2.0), "БУХГАЛТЕРИЯ")
-	_sign(Vector3(11, 2.2, -6.3), "СЕРВЕРНАЯ")
-	_sign(Vector3(19, 2.2, 4.3), "БЕЗОПАСНОСТЬ")
-	_sign(Vector3(2, 2.2, 8.3), "ВЫХОД")
-	_sign(Vector3(-13, 2.2, -3.5), "КУХНЯ")
-	_sign(Vector3(-13, 2.2, 5.5), "ПЕРЕГОВОРНАЯ")
-	_sign(Vector3(26, 2.2, -7.5), "АРХИВ")
-	_sign(Vector3(1, 2.2, -9.5), "СКЛАД")
+func _labels(parent: Node3D, floor_id: int) -> void:
+	if floor_id == 2:
+		_sign(parent, Vector3(CX, 2.4, CZ), "ЭТАЖ 2 — АРХИВ")
+		return
+	_sign(parent, Vector3(-10, 2.4, 6.4), "HR")
+	_sign(parent, Vector3(14, 2.4, 2.5), "БУХГАЛТЕРИЯ")
+	_sign(parent, Vector3(14, 2.4, -7.5), "СЕРВЕРНАЯ")
+	_sign(parent, Vector3(24, 2.4, 6.4), "БЕЗОПАСНОСТЬ")
+	_sign(parent, Vector3(2, 2.4, 12.5), "ВЫХОД / ЛИФТ")
+	_sign(parent, Vector3(-18, 2.4, -3), "КУХНЯ")
+	_sign(parent, Vector3(-18, 2.4, 8), "ПЕРЕГОВОРНАЯ")
+	_sign(parent, Vector3(32, 2.4, -8), "АРХИВ")
+	_sign(parent, Vector3(CX, 2.2, CZ - SZ * 0.5 + 0.4), "НОЧНОЙ ГОРОД")
 
 
-func _sign(pos: Vector3, text: String) -> void:
+func _sign(parent: Node3D, pos: Vector3, text: String) -> void:
 	var l := Label3D.new()
 	l.text = text
 	l.position = pos
 	l.font_size = 64
-	l.modulate = Color(0.55, 0.75, 0.58)
-	add_child(l)
+	l.modulate = Color(0.25, 0.3, 0.35)
+	parent.add_child(l)

@@ -1,0 +1,30 @@
+[gd_scene load_steps=5 format=3 uid="uid://btestdoc001"]
+
+[ext_resource type="Script" path="res://scripts/interactions/readable_document.gd" id="1"]
+
+[sub_resource type="StandardMaterial3D" id="Mat"]
+albedo_color = Color(0.9, 0.9, 0.85, 1)
+
+[sub_resource type="BoxMesh" id="Box"]
+size = Vector3(0.3, 0.05, 0.4)
+material = SubResource("Mat")
+
+[sub_resource type="BoxShape3D" id="Shape"]
+size = Vector3(0.3, 0.05, 0.4)
+
+[node name="TestDocument" type="Node3D"]
+script = ExtResource("1")
+document_title = "Служебная записка"
+document_body = "Рабочий день завершён.
+Не забудьте согласовать выход.
+
+Это тестовый документ этапа 1."
+
+[node name="Body" type="StaticBody3D" parent="."]
+collision_layer = 4
+
+[node name="Mesh" type="MeshInstance3D" parent="Body"]
+mesh = SubResource("Box")
+
+[node name="Col" type="CollisionShape3D" parent="Body"]
+shape = SubResource("Shape")

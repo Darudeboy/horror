@@ -1,0 +1,141 @@
+[gd_scene load_steps=8 format=3 uid="uid://bfoundation001"]
+
+[ext_resource type="PackedScene" path="res://scenes/player/player.tscn" id="1"]
+[ext_resource type="PackedScene" path="res://scenes/ui/game_ui.tscn" id="2"]
+[ext_resource type="Script" path="res://scripts/core/task_manager.gd" id="3"]
+[ext_resource type="PackedScene" path="res://scenes/interactables/test_door.tscn" id="4"]
+[ext_resource type="PackedScene" path="res://scenes/interactables/test_document.tscn" id="5"]
+
+[sub_resource type="StandardMaterial3D" id="MatFloor"]
+albedo_color = Color(0.12, 0.18, 0.32, 1)
+
+[sub_resource type="StandardMaterial3D" id="MatWall"]
+albedo_color = Color(0.78, 0.74, 0.68, 1)
+
+[sub_resource type="BoxMesh" id="BoxFloor"]
+size = Vector3(12, 0.2, 10)
+material = SubResource("MatFloor")
+
+[sub_resource type="BoxShape3D" id="ShapeFloor"]
+size = Vector3(12, 0.2, 10)
+
+[sub_resource type="BoxMesh" id="BoxWall"]
+size = Vector3(12, 3, 0.2)
+material = SubResource("MatWall")
+
+[sub_resource type="BoxShape3D" id="ShapeWall"]
+size = Vector3(12, 3, 0.2)
+
+[sub_resource type="BoxMesh" id="BoxWallSide"]
+size = Vector3(0.2, 3, 10)
+material = SubResource("MatWall")
+
+[sub_resource type="BoxShape3D" id="ShapeWallSide"]
+size = Vector3(0.2, 3, 10)
+
+[sub_resource type="BoxMesh" id="BoxWallBlock"]
+size = Vector3(2, 3, 0.2)
+material = SubResource("MatWall")
+
+[sub_resource type="BoxShape3D" id="ShapeWallBlock"]
+size = Vector3(2, 3, 0.2)
+
+[sub_resource type="Environment" id="Env"]
+background_mode = 1
+background_color = Color(0.08, 0.09, 0.11, 1)
+ambient_light_source = 1
+ambient_light_color = Color(0.4, 0.42, 0.45, 1)
+ambient_light_energy = 0.5
+
+[node name="FoundationTest" type="Node3D"]
+
+[node name="WorldEnvironment" type="WorldEnvironment" parent="."]
+environment = SubResource("Env")
+
+[node name="Fill" type="OmniLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 2.5, 0)
+omni_range = 14.0
+light_color = Color(0.85, 0.9, 0.95, 1)
+
+[node name="Floor" type="StaticBody3D" parent="."]
+collision_layer = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="Floor"]
+mesh = SubResource("BoxFloor")
+
+[node name="Col" type="CollisionShape3D" parent="Floor"]
+shape = SubResource("ShapeFloor")
+
+[node name="WallN" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, -5)
+collision_layer = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="WallN"]
+mesh = SubResource("BoxWall")
+
+[node name="Col" type="CollisionShape3D" parent="WallN"]
+shape = SubResource("ShapeWall")
+
+[node name="WallS" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.5, 5)
+collision_layer = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="WallS"]
+mesh = SubResource("BoxWall")
+
+[node name="Col" type="CollisionShape3D" parent="WallS"]
+shape = SubResource("ShapeWall")
+
+[node name="WallW" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -6, 1.5, 0)
+collision_layer = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="WallW"]
+mesh = SubResource("BoxWallSide")
+
+[node name="Col" type="CollisionShape3D" parent="WallW"]
+shape = SubResource("ShapeWallSide")
+
+[node name="WallE" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 6, 1.5, 0)
+collision_layer = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="WallE"]
+mesh = SubResource("BoxWallSide")
+
+[node name="Col" type="CollisionShape3D" parent="WallE"]
+shape = SubResource("ShapeWallSide")
+
+[node name="BlockingWall" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 1, 1.5, 0)
+collision_layer = 1
+
+[node name="Mesh" type="MeshInstance3D" parent="BlockingWall"]
+mesh = SubResource("BoxWallBlock")
+
+[node name="Col" type="CollisionShape3D" parent="BlockingWall"]
+shape = SubResource("ShapeWallBlock")
+
+[node name="TestDoor" parent="." instance=ExtResource("4")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -2, 0, 2)
+
+[node name="TestDocument" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, -2)
+
+[node name="BehindWallDoc" parent="." instance=ExtResource("5")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 2.5, 1, 0)
+document_title = "Документ за стеной"
+document_body = "Если вы это читаете, луч прошёл сквозь стену — ошибка."
+
+[node name="PlayerSpawn" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+groups = ["player_spawn", "checkpoint"]
+metadata/checkpoint_id = "spawn"
+
+[node name="Player" parent="." instance=ExtResource("1")]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.1, 0)
+
+[node name="TaskManager" type="Node" parent="."]
+script = ExtResource("3")
+
+[node name="GameUI" parent="." instance=ExtResource("2")]

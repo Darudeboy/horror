@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+  <rect width="128" height="128" fill="#2a3340"/>
+  <rect x="24" y="32" width="80" height="64" fill="#c4b8a8" stroke="#1a1f28" stroke-width="3"/>
+  <rect x="40" y="48" width="20" height="16" fill="#6a9aaa"/>
+  <rect x="68" y="48" width="20" height="16" fill="#6a9aaa"/>
+  <rect x="52" y="72" width="24" height="24" fill="#3d4654"/>
+  <text x="64" y="22" text-anchor="middle" fill="#7a9e7e" font-family="sans-serif" font-size="10">EXIT?</text>
+</svg>

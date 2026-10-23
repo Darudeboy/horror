@@ -1,11 +1,22 @@
-[gd_scene load_steps=4 format=3 uid="uid://bqplayer001"]
+[gd_scene load_steps=7 format=3 uid="uid://bqplayer001"]
 
 [ext_resource type="Script" path="res://scripts/player/player_controller.gd" id="1"]
 [ext_resource type="Script" path="res://scripts/interactions/interaction_controller.gd" id="2"]
+[ext_resource type="Script" path="res://scripts/player/hands_controller.gd" id="3"]
 
 [sub_resource type="CapsuleShape3D" id="CapsuleShape3D_1"]
 radius = 0.35
 height = 1.8
+
+[sub_resource type="StandardMaterial3D" id="MatHand"]
+albedo_color = Color(0.82, 0.68, 0.58, 1)
+roughness = 0.7
+
+[sub_resource type="BoxMesh" id="BoxHand"]
+size = Vector3(0.12, 0.1, 0.28)
+
+[sub_resource type="BoxMesh" id="BoxFinger"]
+size = Vector3(0.04, 0.035, 0.1)
 
 [node name="Player" type="CharacterBody3D"]
 collision_layer = 2
@@ -23,6 +34,33 @@ transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1.6, 0)
 [node name="Camera3D" type="Camera3D" parent="Head"]
 current = true
 fov = 75.0
+
+[node name="Hands" type="Node3D" parent="Head/Camera3D"]
+script = ExtResource("3")
+
+[node name="LeftHand" type="Node3D" parent="Head/Camera3D/Hands"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -0.28, -0.28, -0.42)
+
+[node name="Palm" type="MeshInstance3D" parent="Head/Camera3D/Hands/LeftHand"]
+mesh = SubResource("BoxHand")
+material_override = SubResource("MatHand")
+
+[node name="Finger" type="MeshInstance3D" parent="Head/Camera3D/Hands/LeftHand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.16)
+mesh = SubResource("BoxFinger")
+material_override = SubResource("MatHand")
+
+[node name="RightHand" type="Node3D" parent="Head/Camera3D/Hands"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0.28, -0.28, -0.42)
+
+[node name="Palm" type="MeshInstance3D" parent="Head/Camera3D/Hands/RightHand"]
+mesh = SubResource("BoxHand")
+material_override = SubResource("MatHand")
+
+[node name="Finger" type="MeshInstance3D" parent="Head/Camera3D/Hands/RightHand"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.02, -0.16)
+mesh = SubResource("BoxFinger")
+material_override = SubResource("MatHand")
 
 [node name="InteractionController" type="Node" parent="."]
 script = ExtResource("2")

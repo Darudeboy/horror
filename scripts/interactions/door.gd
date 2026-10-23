@@ -109,5 +109,6 @@ func _on_interact(_player: Node) -> void:
 		return
 	if locked and _requirements_met():
 		locked = false
-	set_open(not _open)
-	AudioManager.play_stub_2d()
+	var opening := not _open
+	set_open(opening)
+	AudioManager.play_sfx("door_open" if opening else "door_close")

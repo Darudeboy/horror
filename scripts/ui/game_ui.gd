@@ -219,20 +219,30 @@ func show_ending() -> void:
 
 func on_player_caught() -> void:
 	SaveManager.set_blocker("caught", true)
+	if player == null or not is_instance_valid(player):
+		_find_player()
+	# Death beat: tilt camera, hands collapse, then fade to checkpoint
+	if player and player is Node3D:
+		var head := player.get_node_or_null("Head") as Node3D
+		if head:
+			var tw_cam := create_tween()
+			tw_cam.tween_property(head, "rotation:z", 0.85, 0.65).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	fade.modulate.a = 0.0
 	fade.visible = true
 	var tw := create_tween()
-	tw.tween_property(fade, "modulate:a", 1.0, 0.6)
+	tw.tween_interval(0.55)
+	tw.tween_property(fade, "modulate:a", 1.0, 0.55)
 	tw.tween_callback(_respawn_after_catch)
-	tw.tween_property(fade, "modulate:a", 0.0, 0.6)
+	tw.tween_property(fade, "modulate:a", 0.0, 0.7)
 	tw.tween_callback(func():
 		SaveManager.set_blocker("caught", false)
 		fade.visible = false
+		if player and player.has_method("finish_respawn"):
+			player.finish_respawn()
 	)
 
 
 func _respawn_after_catch() -> void:
-	# Reload checkpoint state into world
 	var data := {}
 	if SaveManager.has_valid_save():
 		data = SaveManager.load_checkpoint()
@@ -243,6 +253,11 @@ func _respawn_after_catch() -> void:
 	var enemy := get_tree().get_first_node_in_group("enemy")
 	if enemy and enemy.has_method("reset_to_safe_patrol"):
 		enemy.reset_to_safe_patrol()
+	if player and player is Node3D:
+		var head := player.get_node_or_null("Head") as Node3D
+		if head:
+			head.rotation.z = 0.0
+
 
 
 func _on_resume_pressed() -> void:

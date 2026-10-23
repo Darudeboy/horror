@@ -6,12 +6,12 @@
 
 [resource]
 resource_name = "CeilingPlaster"
-albedo_color = Color(0.95, 0.95, 0.93, 1)
+albedo_color = Color(1.35, 1.32, 1.25, 1)
 albedo_texture = ExtResource("1_color")
-roughness = 1.0
+roughness = 0.75
 roughness_texture = ExtResource("3_rough")
 normal_enabled = true
-normal_scale = 0.4
+normal_scale = 0.25
 normal_texture = ExtResource("2_normal")
 uv1_scale = Vector3(0.3, 0.3, 0.3)
 uv1_triplanar = true

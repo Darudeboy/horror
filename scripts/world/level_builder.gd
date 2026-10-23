@@ -33,10 +33,10 @@ func _make_materials() -> void:
 	mat_ceiling = _load_mat("res://assets/materials/ceiling_plaster.tres", Color(0.85, 0.85, 0.82))
 	mat_accent = _load_mat("res://assets/materials/accent_sign.tres", Color(0.45, 0.62, 0.48))
 	mat_door = _load_mat("res://assets/materials/door_metal.tres", Color(0.35, 0.4, 0.48))
-	mat_fixture = _mat(Color(0.92, 0.95, 0.88))
+	mat_fixture = _mat(Color(0.98, 1.0, 0.94))
 	mat_fixture.emission_enabled = true
-	mat_fixture.emission = Color(0.85, 0.92, 0.75)
-	mat_fixture.emission_energy_multiplier = 1.4
+	mat_fixture.emission = Color(0.95, 1.0, 0.88)
+	mat_fixture.emission_energy_multiplier = 2.4
 
 
 func _load_mat(path: String, fallback: Color) -> StandardMaterial3D:
@@ -186,6 +186,24 @@ func _desk(pos: Vector3, with_monitor: bool = false) -> void:
 		_spawn_model("res://assets/models/kenney/computerScreen.glb", pos + Vector3(0, 0.95, -0.2), PROP_SCALE)
 		_spawn_model("res://assets/models/kenney/computerKeyboard.glb", pos + Vector3(0, 0.92, 0.25), PROP_SCALE)
 	_spawn_model("res://assets/models/kenney/chairDesk.glb", pos + Vector3(0, 0, 1.1), PROP_SCALE)
+	_add_hide_spot(pos + Vector3(0, 0.35, 0.15), Vector3(1.6, 0.85, 1.2))
+
+
+func _add_hide_spot(pos: Vector3, size: Vector3) -> void:
+	var area := Area3D.new()
+	area.name = "HideSpot"
+	area.position = pos
+	area.monitoring = true
+	area.monitorable = true
+	area.collision_layer = 0
+	area.collision_mask = 2
+	area.add_to_group("hide_spot")
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	col.shape = shape
+	area.add_child(col)
+	add_child(area)
 
 
 func _spawn_model(path: String, pos: Vector3, scale: float, rot_y_deg: float = 0.0) -> bool:
@@ -207,21 +225,20 @@ func _add_lights() -> void:
 	var env := WorldEnvironment.new()
 	var e := Environment.new()
 	e.background_mode = Environment.BG_COLOR
-	e.background_color = Color(0.07, 0.08, 0.1)
+	e.background_color = Color(0.12, 0.13, 0.15)
 	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	e.ambient_light_color = Color(0.32, 0.35, 0.38)
-	e.ambient_light_energy = 0.28
+	e.ambient_light_color = Color(0.55, 0.58, 0.6)
+	e.ambient_light_energy = 0.55
 	env.environment = e
 	add_child(env)
-	# Uniform fluorescent grid across expanded floor
-	var xs := range(-14, 29, 4)
-	var zs := range(-14, 17, 4)
+	# Uniform fluorescent grid — denser and brighter
+	var xs := range(-14, 29, 3)
+	var zs := range(-14, 17, 3)
 	for x in xs:
 		for z in zs:
-			_fluorescent(Vector3(float(x), 2.85, float(z)), Vector3(2.4, 0.08, 0.35))
-	# Accounting tagged lights (for blackout)
+			_fluorescent(Vector3(float(x), 2.85, float(z)), Vector3(2.6, 0.1, 0.4))
 	for p in [Vector3(12, 2.85, -2), Vector3(14, 2.85, 0), Vector3(10, 2.85, -1)]:
-		var l := _fluorescent(p, Vector3(2.4, 0.08, 0.35), true)
+		var l := _fluorescent(p, Vector3(2.6, 0.1, 0.4), true)
 		l.add_to_group("accounting_lights")
 	var emerg := _omni(Vector3(13, 2.2, -5), 6.0)
 	emerg.light_color = Color(0.4, 0.9, 0.5)
@@ -231,16 +248,15 @@ func _add_lights() -> void:
 
 
 func _fluorescent(pos: Vector3, size: Vector3, return_omni: bool = false) -> OmniLight3D:
-	# Fixture mesh
 	_box(self, pos, size, mat_fixture)
 	var l := OmniLight3D.new()
-	l.position = pos + Vector3(0, -0.15, 0)
-	l.omni_range = 5.5
-	l.light_color = Color(0.88, 0.95, 0.82) # cool fluorescent
-	l.light_energy = 0.85
+	l.position = pos + Vector3(0, -0.12, 0)
+	l.omni_range = 7.0
+	l.light_color = Color(0.95, 0.98, 0.9)
+	l.light_energy = 1.35
 	l.shadow_enabled = false
 	add_child(l)
-	return l if return_omni else l
+	return l
 
 
 func _omni(pos: Vector3, dist: float) -> OmniLight3D:
@@ -272,10 +288,15 @@ func _add_interactables() -> void:
 	_spawn_turnstile(Vector3(2, 0, 12.5))
 	_spawn_elevator(Vector3(4.5, 0, 13))
 	_spawn_loop_trigger()
+	_spawn_consumable(Vector3(-5.2, 1.0, -3.2), "energy_drink", 1, "Взять энергетик")
 	_spawn_consumable(Vector3(-13.5, 1.0, -1.0), "energy_drink", 2, "Взять энергетик")
 	_spawn_consumable(Vector3(-12.5, 1.0, 8.5), "energy_drink", 1, "Взять энергетик")
 	_spawn_consumable(Vector3(0.5, 1.0, -13.2), "cigarettes", 1, "Взять сигареты")
 	_spawn_consumable(Vector3(18, 1.0, 0), "cigarettes", 1, "Взять сигареты")
+	# Extra hide spots for chase
+	_add_hide_spot(Vector3(-13, 0.4, 0), Vector3(2.0, 1.0, 2.0))
+	_add_hide_spot(Vector3(0, 0.4, -13), Vector3(2.2, 1.0, 2.2))
+	_add_hide_spot(Vector3(26, 0.4, -4), Vector3(2.0, 1.0, 2.0))
 	var zone := Area3D.new()
 	zone.position = Vector3(12, 1, -2)
 	zone.add_to_group("event_zone_lights_out")

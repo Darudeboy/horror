@@ -223,7 +223,11 @@ func _move_along(delta: float, speed: float) -> void:
 
 
 func _can_see(player: Node3D) -> bool:
-	var to_player := player.global_position + Vector3(0, 1.4, 0) - head.global_position
+	# Crouched inside hide_spot = not visible
+	if "is_hidden" in player and bool(player.get("is_hidden")):
+		return false
+	var eye_y := 0.9 if ("crouching" in player and bool(player.get("crouching"))) else 1.4
+	var to_player := player.global_position + Vector3(0, eye_y, 0) - head.global_position
 	var dist := to_player.length()
 	if dist > VISION_RANGE or dist < 0.05:
 		return false
@@ -231,7 +235,7 @@ func _can_see(player: Node3D) -> bool:
 	var angle := rad_to_deg(forward.angle_to(to_player.normalized()))
 	if angle > VISION_ANGLE_DEG * 0.5:
 		return false
-	return _has_line_to(player.global_position + Vector3(0, 1.4, 0))
+	return _has_line_to(player.global_position + Vector3(0, eye_y, 0))
 
 
 func _has_line_to(target: Vector3) -> bool:
@@ -256,7 +260,13 @@ func _has_line_to(target: Vector3) -> bool:
 func _catch_player() -> void:
 	if GameState.is_invulnerable():
 		return
+	var player := get_tree().get_first_node_in_group("player")
+	if player and "is_hidden" in player and bool(player.get("is_hidden")):
+		return
+	if player and player.has_method("begin_death"):
+		player.begin_death()
 	GameState.notification_requested.emit("Проверка соответствия...")
+	AudioManager.play_sfx("alarm", 0.9, -4.0)
 	var ui := get_tree().get_first_node_in_group("game_ui")
 	if ui and ui.has_method("on_player_caught"):
 		ui.on_player_caught()

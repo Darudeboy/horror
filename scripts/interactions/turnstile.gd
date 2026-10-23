@@ -64,6 +64,12 @@ func _on_interact(_player: Node) -> void:
 		GameState.set_flag(GameState.FLAG_EXIT_CHECKED, true)
 		GameState.notification_requested.emit("Нужны согласования: HR, бухгалтерия, безопасность. Начните с HR.")
 		SaveManager.save_checkpoint("after_exit_check")
+		# Early threat for playable Level 1 testing of hide/death
+		var director := get_tree().get_first_node_in_group("event_director")
+		if director and director.has_method("queue_event"):
+			director.queue_event("activate_enemy")
+		AudioManager.play_sfx("creak")
 	else:
 		GameState.notification_requested.emit(get_deny_reason(_player))
+		AudioManager.play_sfx("error")
 	_refresh()

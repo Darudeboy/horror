@@ -32,7 +32,7 @@
 - Материалы без текстур: `assets/materials/door_metal.tres`, `accent_sign.tres`, `printer_body.tres`
 - Иконка `icon.svg` — оригинальная заглушка проекта
 - Двери / люминесцентные корпуса / fallback-коллизии — собственные примитивы
-- Аудиоклипы пока отсутствуют; игровой шум ИИ не требует файлов
+- Звуки: Kenney Interface / RPG Audio / Impact Sounds (CC0) — см. ниже
 
 ---
 
@@ -127,3 +127,12 @@
 - URL: https://poly.pizza/m/EDvCEBvs8k
 - Путь: `assets/models/props/keycard.glb`
 - Использование: визуал пропуска
+
+### Kenney audio (шаги, двери, UI, тревога)
+- Источник: Kenney.nl — Interface Sounds, RPG Audio, Impact Sounds
+- Автор: Kenney
+- Лицензия: CC0 1.0
+- URL: https://kenney.nl/assets/interface-sounds , https://kenney.nl/assets/rpg-audio , https://kenney.nl/assets/impact-sounds
+- Копии лицензий: `assets/audio/KENNEY_*_LICENSE.txt`
+- Путь: `assets/audio/sfx/*.ogg`
+- Использование: шаги, двери, подбор, сигнал, гибель, удар о стену
